@@ -1,0 +1,239 @@
+//@version=6
+// ──────────────────────────────────────────────────────────────────────────────
+// @title        TEMA-ST-WT LONG OPTIMIZED
+// @description  Versione ottimizzata con parametri definitivi
+// @version      5.0
+// ──────────────────────────────────────────────────────────────────────────────
+
+// — INPUT TIMEFRAME —
+tf = input.string("120", "Timeframe", options = ["120","240"])
+
+// — DATI MULTITF —
+[close_tf, high_tf, low_tf, hl2_tf, hlc3_tf, vol_tf] = request.security(syminfo.tickerid, tf, [close, high, low, hl2, hlc3, volume])
+
+// — STRATEGY SETTINGS —
+strategy("TEMA-ST-WT LONG OPT", overlay=true,
+     initial_capital    = 100000,
+     default_qty_type   = strategy.percent_of_equity,
+     default_qty_value  = 100,
+     pyramiding         = 0,
+     commission_type    = strategy.commission.percent,
+     commission_value   = 0.01)
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PARAMETRI OTTIMIZZATI (valori finali dall'ottimizzazione)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+temaLen_in   = 36
+stFactor_in  = 2.6
+maxDistATR   = 2.2
+stopPerc     = 2.5 / 100
+tpPerc       = 8.0 / 100
+stFactor_out = 3.4
+temaLen_out  = 38
+wtN2_in      = 15
+
+stPeriod_in  = 10
+wtN1_in      = 10
+stPeriod_out = 10
+wtN1_out     = 10
+wtN2_out     = 21
+
+// Opzioni visualizzazione
+showLabels   = input.bool(true, "Mostra labels trade")
+showDashboard = input.bool(true, "Mostra dashboard")
+showLevels   = input.bool(true, "Mostra livelli SL/TP")
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// INDICATORS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// TEMA IN / OUT
+tema_in  = 3*ta.ema(close_tf, temaLen_in) - 3*ta.ema(ta.ema(close_tf, temaLen_in), temaLen_in) + ta.ema(ta.ema(ta.ema(close_tf, temaLen_in), temaLen_in), temaLen_in)
+tema_out = 3*ta.ema(close_tf, temaLen_out) - 3*ta.ema(ta.ema(close_tf, temaLen_out), temaLen_out) + ta.ema(ta.ema(ta.ema(close_tf, temaLen_out), temaLen_out), temaLen_out)
+
+// Supertrend IN
+atr_in = ta.atr(stPeriod_in)
+upC_in = hl2_tf - stFactor_in * atr_in
+dnC_in = hl2_tf + stFactor_in * atr_in
+var float _up_in = na
+var float _dn_in = na
+var int trend_in = 0
+_up_in := close_tf[1] > nz(_up_in[1], upC_in) ? math.max(upC_in, nz(_up_in[1], upC_in)) : upC_in
+_dn_in := close_tf[1] < nz(_dn_in[1], dnC_in) ? math.min(dnC_in, nz(_dn_in[1], dnC_in)) : dnC_in
+trend_in := close_tf > _dn_in[1] ? 1 : close_tf < _up_in[1] ? -1 : nz(trend_in[1])
+
+// Supertrend OUT
+atr_out = ta.atr(stPeriod_out)
+upC_out = hl2_tf - stFactor_out * atr_out
+dnC_out = hl2_tf + stFactor_out * atr_out
+var float _up_out = na
+var float _dn_out = na
+var int trend_out = 0
+_up_out := close_tf[1] > nz(_up_out[1], upC_out) ? math.max(upC_out, nz(_up_out[1], upC_out)) : upC_out
+_dn_out := close_tf[1] < nz(_dn_out[1], dnC_out) ? math.min(dnC_out, nz(_dn_out[1], dnC_out)) : dnC_out
+trend_out := close_tf > _dn_out[1] ? 1 : close_tf < _up_out[1] ? -1 : nz(trend_out[1])
+
+// WT IN
+ap_in  = hlc3_tf
+esa_in = ta.ema(ap_in, wtN1_in)
+d_in   = ta.ema(math.abs(ap_in - esa_in), wtN1_in)
+ci_in  = (ap_in - esa_in) / (0.015 * d_in)
+wt1_in = ta.ema(ci_in, wtN2_in)
+wt2_in = ta.sma(wt1_in, 4)
+wtUp   = wt1_in > wt2_in
+
+// WT OUT
+ap_out  = hlc3_tf
+esa_out = ta.ema(ap_out, wtN1_out)
+d_out   = ta.ema(math.abs(ap_out - esa_out), wtN1_out)
+ci_out  = (ap_out - esa_out) / (0.015 * d_out)
+wt1_out = ta.ema(ci_out, wtN2_out)
+wt2_out = ta.sma(wt1_out, 4)
+wtDown  = ta.crossunder(wt1_out, wt2_out)
+
+distATR = (close_tf - tema_in) / atr_in
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ENTRY FILTERS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+tema_slope = tema_in - tema_in[1]
+tema_slope_ratio = math.abs(tema_slope) / ta.atr(10)
+isFlatSlope = tema_slope_ratio < 0.008
+
+rangeHigh5 = ta.highest(high_tf, 5)
+rangeLow5  = ta.lowest(low_tf, 5)
+rangeCond  = (rangeHigh5 - rangeLow5) / close_tf < 0.01
+isLateral  = isFlatSlope or rangeCond
+
+longOK = (trend_in == 1) and wtUp and (distATR <= maxDistATR) and not isLateral
+inLong = strategy.position_size > 0
+
+if not inLong and longOK
+    strategy.entry("Long", strategy.long)
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// POSITION MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════════════════
+
+var float entryPrice = na
+var int entryBar = na
+
+if inLong and not inLong[1]
+    entryPrice := strategy.position_avg_price
+    entryBar := bar_index
+
+stopPrice  = entryPrice * (1 - stopPerc)
+limitPrice = entryPrice * (1 + tpPerc)
+
+exit_wt    = wtDown
+exit_st    = trend_out == -1
+exit_tema  = close_tf < tema_out
+exit_count = (exit_wt ? 1 : 0) + (exit_st ? 1 : 0) + (exit_tema ? 1 : 0)
+shouldExit = exit_count >= 3
+exit_bar   = inLong and shouldExit
+
+if inLong
+    strategy.exit("SL/TP", from_entry="Long", stop=stopPrice, limit=tpPerc > 0 ? limitPrice : na)
+    if exit_bar
+        strategy.close("Long", comment="Exit")
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PLOTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// TEMA lines
+plot(tema_in, "TEMA IN", color=color.new(color.orange, 0), linewidth=2)
+plot(tema_out, "TEMA OUT", color=color.new(color.blue, 50), linewidth=1, style=plot.style_circles)
+
+// Supertrend
+plot(trend_in==1 ? _up_in : na, "ST Up", color=color.new(color.green, 0), linewidth=2, style=plot.style_linebr)
+plot(trend_in==-1 ? _dn_in : na, "ST Dn", color=color.new(color.red, 0), linewidth=2, style=plot.style_linebr)
+
+// Background
+bgcolor(inLong ? color.new(color.green, 92) : na, title="In Position")
+
+// SL/TP levels
+plot(showLevels and inLong ? stopPrice : na, "Stop Loss", color=color.new(color.red, 0), linewidth=2, style=plot.style_cross)
+plot(showLevels and inLong ? limitPrice : na, "Take Profit", color=color.new(color.green, 0), linewidth=2, style=plot.style_cross)
+plot(showLevels and inLong ? entryPrice : na, "Entry", color=color.new(color.white, 0), linewidth=1, style=plot.style_circles)
+
+// Entry signal
+plotshape(longOK and not inLong, "LONG", shape.triangleup, location.belowbar, color.new(color.lime, 0), size=size.large)
+
+// Exit signal
+plotshape(exit_bar, "EXIT", shape.triangledown, location.abovebar, color.new(color.red, 0), size=size.large)
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// LABELS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+if showLabels
+    // Entry label
+    if longOK and not inLong
+        label.new(bar_index, low_tf, 
+             text="LONG\n" + str.tostring(close_tf, "#.##") + "\nSL: " + str.tostring(stopPrice, "#.##") + "\nTP: " + str.tostring(limitPrice, "#.##"), 
+             style=label.style_label_up, 
+             color=color.green, 
+             textcolor=color.white, 
+             size=size.normal)
+    
+    // Exit label
+    if exit_bar
+        profitPct = ((close_tf - entryPrice) / entryPrice) * 100
+        profitColor = profitPct > 0 ? color.green : color.red
+        label.new(bar_index, high_tf, 
+             text="EXIT\n" + str.tostring(close_tf, "#.##") + "\nP&L: " + str.tostring(profitPct, "#.##") + "%", 
+             style=label.style_label_down, 
+             color=profitColor, 
+             textcolor=color.white, 
+             size=size.normal)
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════════════════════════════
+
+var table dashboard = table.new(position.top_right, 2, 10, border_width=2)
+
+if showDashboard and barstate.islast
+    // Header
+    table.cell(dashboard, 0, 0, "LONG STRATEGY", text_color=color.white, bgcolor=color.new(color.blue, 20), text_size=size.large)
+    table.cell(dashboard, 1, 0, inLong ? "🟢 IN TRADE" : "⚪ WAITING", text_color=color.white, bgcolor=inLong ? color.green : color.gray, text_size=size.large)
+    
+    // Position info
+    if inLong
+        currentPnL = ((close_tf - entryPrice) / entryPrice) * 100
+        bars_in_trade = bar_index - entryBar
+        
+        table.cell(dashboard, 0, 1, "Entry Price", text_color=color.white, bgcolor=color.new(color.gray, 50), text_size=size.normal)
+        table.cell(dashboard, 1, 1, str.tostring(entryPrice, "#.##"), text_color=color.white, bgcolor=color.new(color.gray, 60), text_size=size.normal)
+        
+        table.cell(dashboard, 0, 2, "Current P&L", text_color=color.white, bgcolor=color.new(color.gray, 50), text_size=size.normal)
+        table.cell(dashboard, 1, 2, str.tostring(currentPnL, "#.##") + "%", text_color=currentPnL >= 0 ? color.lime : color.red, bgcolor=color.new(color.gray, 60), text_size=size.normal)
+        
+        table.cell(dashboard, 0, 3, "Stop Loss", text_color=color.white, bgcolor=color.new(color.gray, 50), text_size=size.normal)
+        table.cell(dashboard, 1, 3, str.tostring(stopPrice, "#.##"), text_color=color.red, bgcolor=color.new(color.gray, 60), text_size=size.normal)
+        
+        table.cell(dashboard, 0, 4, "Take Profit", text_color=color.white, bgcolor=color.new(color.gray, 50), text_size=size.normal)
+        table.cell(dashboard, 1, 4, str.tostring(limitPrice, "#.##"), text_color=color.lime, bgcolor=color.new(color.gray, 60), text_size=size.normal)
+        
+        table.cell(dashboard, 0, 5, "Bars in trade", text_color=color.white, bgcolor=color.new(color.gray, 50), text_size=size.normal)
+        table.cell(dashboard, 1, 5, str.tostring(bars_in_trade), text_color=color.white, bgcolor=color.new(color.gray, 60), text_size=size.normal)
+    
+    // Exit conditions
+    table.cell(dashboard, 0, 6, "EXIT CONDITIONS", text_color=color.white, bgcolor=color.new(color.orange, 30), text_size=size.normal)
+    table.cell(dashboard, 1, 6, str.tostring(exit_count) + " / 3", text_color=color.white, bgcolor=exit_count >= 3 ? color.red : color.new(color.gray, 50), text_size=size.normal)
+    
+    table.cell(dashboard, 0, 7, "  Wave Trend", text_color=color.white, bgcolor=color.new(color.gray, 60), text_size=size.small)
+    table.cell(dashboard, 1, 7, exit_wt ? "✗" : "✓", text_color=exit_wt ? color.red : color.lime, bgcolor=color.new(color.gray, 70), text_size=size.small)
+    
+    table.cell(dashboard, 0, 8, "  Supertrend", text_color=color.white, bgcolor=color.new(color.gray, 60), text_size=size.small)
+    table.cell(dashboard, 1, 8, exit_st ? "✗" : "✓", text_color=exit_st ? color.red : color.lime, bgcolor=color.new(color.gray, 70), text_size=size.small)
+    
+    table.cell(dashboard, 0, 9, "  TEMA", text_color=color.white, bgcolor=color.new(color.gray, 60), text_size=size.small)
+    table.cell(dashboard, 1, 9, exit_tema ? "✗" : "✓", text_color=exit_tema ? color.red : color.lime, bgcolor=color.new(color.gray, 70), text_size=size.small)
+
+// Alerts
+alertcondition(longOK and not inLong, "Long Entry", "🟢 LONG ENTRY {{ticker}} @ {{close}}")
+alertcondition(exit_bar, "Exit Signal", "🔴 EXIT {{ticker}} @ {{close}}")
