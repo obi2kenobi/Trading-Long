@@ -413,8 +413,8 @@ if showDashboard and barstate.islast
 // ALERTS - Enhanced with filter info
 // ═══════════════════════════════════════════════════════════════════════════════
 
-alertcondition(longOK and not inLong, "Long Entry", "🚀 LONG ENTRY {{ticker}} @ {{close}} | RSI: " + str.tostring(rsi, "#.#") + " | ADX: " + str.tostring(adx, "#.#") + " | All filters passed ✓")
-alertcondition(exit_bar, "Exit Signal", "🛑 EXIT {{ticker}} @ {{close}} | " + str.tostring(exit_count) + " exit conditions triggered")
-alertcondition(hasGap, "Gap Detected", "⚠️ GAP DETECTED on {{ticker}} | Size: " + str.tostring(gapSize*100, "#.##") + "%")
-alertcondition(not trendStrong and barstate.isconfirmed, "Choppy Market", "⚠️ CHOPPY MARKET {{ticker}} | ADX: " + str.tostring(adx, "#.#") + " below threshold")
-alertcondition(not rsiOK and barstate.isconfirmed, "RSI Overbought", "⚠️ RSI OVERBOUGHT {{ticker}} | RSI: " + str.tostring(rsi, "#.#"))
+alertcondition(longOK and not inLong, "Long Entry", "🚀 LONG ENTRY {{ticker}} @ {{close}} | All filters passed ✓")
+alertcondition(exit_bar, "Exit Signal", "🛑 EXIT {{ticker}} @ {{close}} | Multiple exit conditions triggered")
+alertcondition(hasGap, "Gap Detected", "⚠️ GAP DETECTED on {{ticker}} | Check price action")
+alertcondition(not trendStrong and barstate.isconfirmed, "Choppy Market", "⚠️ CHOPPY MARKET {{ticker}} | Low trend strength")
+alertcondition(not rsiOK and barstate.isconfirmed, "RSI Overbought", "⚠️ RSI OVERBOUGHT {{ticker}} | Avoid entries")
