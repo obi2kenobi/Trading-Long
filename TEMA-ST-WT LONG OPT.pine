@@ -1,9 +1,22 @@
 //@version=6
-// ──────────────────────────────────────────────────────────────────────────────
-// @title        TEMA-ST-WT LONG OPTIMIZED
-// @description  Versione ottimizzata con parametri definitivi
-// @version      5.0
-// ──────────────────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// @title        TEMA-ST-WT LONG OPTIMIZED ADVANCED
+// @description  Versione ottimizzata con filtri avanzati e grafica migliorata
+// @version      6.0
+// @author       Trading-Long Strategy
+// ══════════════════════════════════════════════════════════════════════════════
+//
+// 🚀 MIGLIORAMENTI v6.0:
+// ───────────────────────────────────────────────────────────────────────────
+// ✓ Filtro RSI - Evita entrate in zone di ipercomprato (default: RSI > 70)
+// ✓ Filtro Volume - Richiede volume superiore alla media (protezione basso volume)
+// ✓ ADX Trend Strength - Evita entrate in mercati choppy/laterali (ADX < 25)
+// ✓ Volatility Regime - Identifica alta/bassa volatilità per adattamento dinamico
+// ✓ Gap Detection - Rileva e segnala gap di apertura
+// ✓ Slippage Management - Calcolo realistico con margine di slippage su SL/TP
+// ✓ Grafica Migliorata - Colori più vividi, dashboard espansa, warning signals
+// ✓ Dashboard Avanzata - Mostra stato filtri in tempo reale e metriche dettagliate
+// ══════════════════════════════════════════════════════════════════════════════
 
 // — INPUT TIMEFRAME —
 tf = input.string("120", "Timeframe", options = ["120","240"])
@@ -39,10 +52,37 @@ stPeriod_out = 10
 wtN1_out     = 10
 wtN2_out     = 21
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// NUOVI FILTRI AVANZATI
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// RSI Settings
+rsiLen       = input.int(14, "RSI Period", minval=5, maxval=30)
+rsiOverbought = input.int(70, "RSI Overbought Level", minval=60, maxval=80)
+
+// Volume Settings
+volMaLen     = input.int(20, "Volume MA Period", minval=10, maxval=50)
+volMultiplier = input.float(1.2, "Volume Multiplier", minval=0.5, maxval=3.0, step=0.1)
+
+// ADX Settings (Anti-Choppy)
+adxLen       = input.int(14, "ADX Period", minval=7, maxval=30)
+adxThreshold = input.float(25.0, "ADX Minimum (Trend Strength)", minval=15.0, maxval=40.0, step=1.0)
+
+// Volatility Regime
+atrMaLen     = input.int(50, "ATR MA Period", minval=20, maxval=100)
+highVolMultiplier = input.float(1.5, "High Volatility Threshold", minval=1.2, maxval=2.5, step=0.1)
+
+// Gap Detection
+gapThreshold = input.float(0.5, "Gap Threshold %", minval=0.2, maxval=2.0, step=0.1) / 100
+
+// Slippage
+slippagePerc = input.float(0.05, "Slippage Assumption %", minval=0.01, maxval=0.5, step=0.01) / 100
+
 // Opzioni visualizzazione
 showLabels   = input.bool(true, "Mostra labels trade")
 showDashboard = input.bool(true, "Mostra dashboard")
 showLevels   = input.bool(true, "Mostra livelli SL/TP")
+showFilters  = input.bool(true, "Mostra stato filtri")
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // INDICATORS
@@ -95,6 +135,35 @@ wtDown  = ta.crossunder(wt1_out, wt2_out)
 distATR = (close_tf - tema_in) / atr_in
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// NUOVI INDICATORI - FILTRI AVANZATI
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// RSI Filter
+rsi = ta.rsi(close_tf, rsiLen)
+rsiOK = rsi < rsiOverbought
+
+// Volume Filter
+volMA = ta.sma(vol_tf, volMaLen)
+volumeOK = vol_tf > volMA * volMultiplier
+
+// ADX - Trend Strength (Anti-Choppy Filter)
+[diPlus, diMinus, adx] = ta.dmi(adxLen, adxLen)
+trendStrong = adx > adxThreshold
+
+// Volatility Regime
+atrCurrent = ta.atr(14)
+atrMA = ta.sma(atrCurrent, atrMaLen)
+volRegime = atrCurrent / atrMA
+isHighVol = volRegime > highVolMultiplier
+isNormalVol = volRegime <= highVolMultiplier and volRegime >= 0.7
+isLowVol = volRegime < 0.7
+
+// Gap Detection
+gap = math.abs(open - close[1])
+gapSize = gap / close[1]
+hasGap = gapSize > gapThreshold
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // ENTRY FILTERS
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -107,11 +176,24 @@ rangeLow5  = ta.lowest(low_tf, 5)
 rangeCond  = (rangeHigh5 - rangeLow5) / close_tf < 0.01
 isLateral  = isFlatSlope or rangeCond
 
-longOK = (trend_in == 1) and wtUp and (distATR <= maxDistATR) and not isLateral
+// ═══════════════════════════════════════════════════════════════════════════════
+// CONDIZIONI ENTRY COMPLETE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Condizioni base (originali)
+baseConditions = (trend_in == 1) and wtUp and (distATR <= maxDistATR) and not isLateral
+
+// Nuovi filtri di sicurezza
+safetyFilters = rsiOK and volumeOK and trendStrong and not hasGap
+
+// Condizione entry finale
+longOK = baseConditions and safetyFilters
 inLong = strategy.position_size > 0
 
+// Entry con slippage consideration
 if not inLong and longOK
-    strategy.entry("Long", strategy.long)
+    entryPriceWithSlippage = close_tf * (1 + slippagePerc)
+    strategy.entry("Long", strategy.long, comment="LONG")
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // POSITION MANAGEMENT
@@ -119,13 +201,16 @@ if not inLong and longOK
 
 var float entryPrice = na
 var int entryBar = na
+var float entrySlippage = na
 
 if inLong and not inLong[1]
     entryPrice := strategy.position_avg_price
     entryBar := bar_index
+    entrySlippage := entryPrice * slippagePerc
 
-stopPrice  = entryPrice * (1 - stopPerc)
-limitPrice = entryPrice * (1 + tpPerc)
+// Stop Loss e Take Profit con margine di slippage
+stopPrice  = entryPrice * (1 - stopPerc - slippagePerc)
+limitPrice = entryPrice * (1 + tpPerc - slippagePerc)
 
 exit_wt    = wtDown
 exit_st    = trend_out == -1
@@ -140,100 +225,198 @@ if inLong
         strategy.close("Long", comment="Exit")
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// PLOTS
+// PLOTS - GRAFICA MIGLIORATA
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// TEMA lines
-plot(tema_in, "TEMA IN", color=color.new(color.orange, 0), linewidth=2)
-plot(tema_out, "TEMA OUT", color=color.new(color.blue, 50), linewidth=1, style=plot.style_circles)
+// ─────────────────────────────────────────────────────────────────────────────
+// TEMA Lines - Colori più vividi e contrastati
+// ─────────────────────────────────────────────────────────────────────────────
+temaInColor = color.new(#FF6B00, 0)  // Arancione brillante
+temaOutColor = color.new(#00A8FF, 30) // Blu cielo
+plot(tema_in, "TEMA IN (Entry)", color=temaInColor, linewidth=3)
+plot(tema_out, "TEMA OUT (Exit)", color=temaOutColor, linewidth=2, style=plot.style_line)
 
-// Supertrend
-plot(trend_in==1 ? _up_in : na, "ST Up", color=color.new(color.green, 0), linewidth=2, style=plot.style_linebr)
-plot(trend_in==-1 ? _dn_in : na, "ST Dn", color=color.new(color.red, 0), linewidth=2, style=plot.style_linebr)
+// ─────────────────────────────────────────────────────────────────────────────
+// Supertrend - Verde/Rosso intensi
+// ─────────────────────────────────────────────────────────────────────────────
+stUpColor = color.new(#00FF41, 0)   // Verde neon
+stDnColor = color.new(#FF0055, 0)   // Rosso intenso
+plot(trend_in==1 ? _up_in : na, "ST ↑ Bullish", color=stUpColor, linewidth=3, style=plot.style_linebr)
+plot(trend_in==-1 ? _dn_in : na, "ST ↓ Bearish", color=stDnColor, linewidth=3, style=plot.style_linebr)
 
-// Background
-bgcolor(inLong ? color.new(color.green, 92) : na, title="In Position")
+// ─────────────────────────────────────────────────────────────────────────────
+// Background - Zone colorate per volatilità
+// ─────────────────────────────────────────────────────────────────────────────
+volColor = isHighVol ? color.new(color.red, 95) : isLowVol ? color.new(color.yellow, 97) : na
+bgcolor(volColor, title="Volatility Regime")
+bgcolor(inLong ? color.new(#00FF41, 93) : na, title="Position Active")
+bgcolor(not trendStrong ? color.new(color.orange, 97) : na, title="Choppy Market Warning")
 
-// SL/TP levels
-plot(showLevels and inLong ? stopPrice : na, "Stop Loss", color=color.new(color.red, 0), linewidth=2, style=plot.style_cross)
-plot(showLevels and inLong ? limitPrice : na, "Take Profit", color=color.new(color.green, 0), linewidth=2, style=plot.style_cross)
-plot(showLevels and inLong ? entryPrice : na, "Entry", color=color.new(color.white, 0), linewidth=1, style=plot.style_circles)
+// ─────────────────────────────────────────────────────────────────────────────
+// SL/TP Levels - Linee più evidenti
+// ─────────────────────────────────────────────────────────────────────────────
+plot(showLevels and inLong ? stopPrice : na, "⛔ Stop Loss", color=color.new(#FF0055, 0), linewidth=3, style=plot.style_cross)
+plot(showLevels and inLong ? limitPrice : na, "🎯 Take Profit", color=color.new(#00FF41, 0), linewidth=3, style=plot.style_cross)
+plot(showLevels and inLong ? entryPrice : na, "📍 Entry", color=color.new(#FFFFFF, 0), linewidth=2, style=plot.style_circles)
 
-// Entry signal
-plotshape(longOK and not inLong, "LONG", shape.triangleup, location.belowbar, color.new(color.lime, 0), size=size.large)
+// ─────────────────────────────────────────────────────────────────────────────
+// Entry/Exit Signals - Più visibili
+// ─────────────────────────────────────────────────────────────────────────────
+plotshape(longOK and not inLong, "🚀 LONG ENTRY", shape.triangleup, location.belowbar, color.new(#00FF41, 0), size=size.huge)
+plotshape(exit_bar, "🛑 EXIT", shape.triangledown, location.abovebar, color.new(#FF0055, 0), size=size.huge)
 
-// Exit signal
-plotshape(exit_bar, "EXIT", shape.triangledown, location.abovebar, color.new(color.red, 0), size=size.large)
+// ─────────────────────────────────────────────────────────────────────────────
+// Warning Signals - Segnali di avviso
+// ─────────────────────────────────────────────────────────────────────────────
+plotchar(hasGap and barstate.isconfirmed, "⚠️ GAP", "G", location.top, color.new(color.orange, 0), size=size.small)
+plotchar(not rsiOK and barstate.isconfirmed, "⚠️ RSI High", "R", location.top, color.new(color.red, 0), size=size.small)
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // LABELS
 // ═══════════════════════════════════════════════════════════════════════════════
 
 if showLabels
-    // Entry label
+    // ─────────────────────────────────────────────────────────────────────────
+    // Entry Label - Con info filtri
+    // ─────────────────────────────────────────────────────────────────────────
     if longOK and not inLong
-        label.new(bar_index, low_tf, 
-             text="LONG\n" + str.tostring(close_tf, "#.##") + "\nSL: " + str.tostring(stopPrice, "#.##") + "\nTP: " + str.tostring(limitPrice, "#.##"), 
-             style=label.style_label_up, 
-             color=color.green, 
-             textcolor=color.white, 
-             size=size.normal)
-    
-    // Exit label
+        volRegimeLabel = isHighVol ? "HIGH VOL ⚠️" : isNormalVol ? "NORMAL VOL" : "LOW VOL"
+        labelText = "🚀 LONG ENTRY\n" +
+             "Price: " + str.tostring(close_tf, "#.##") + "\n" +
+             "SL: " + str.tostring(stopPrice, "#.##") + " (-" + str.tostring(stopPerc*100, "#.#") + "%)\n" +
+             "TP: " + str.tostring(limitPrice, "#.##") + " (+" + str.tostring(tpPerc*100, "#.#") + "%)\n" +
+             "━━━━━━━━━━━━━\n" +
+             "RSI: " + str.tostring(rsi, "#.#") + " | ADX: " + str.tostring(adx, "#.#") + "\n" +
+             volRegimeLabel
+
+        label.new(bar_index, low_tf,
+             text=labelText,
+             style=label.style_label_up,
+             color=color.new(#00FF41, 0),
+             textcolor=color.white,
+             size=size.normal,
+             tooltip="All filters passed - High probability setup")
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Exit Label - Con dettagli performance
+    // ─────────────────────────────────────────────────────────────────────────
     if exit_bar
         profitPct = ((close_tf - entryPrice) / entryPrice) * 100
-        profitColor = profitPct > 0 ? color.green : color.red
-        label.new(bar_index, high_tf, 
-             text="EXIT\n" + str.tostring(close_tf, "#.##") + "\nP&L: " + str.tostring(profitPct, "#.##") + "%", 
-             style=label.style_label_down, 
-             color=profitColor, 
-             textcolor=color.white, 
-             size=size.normal)
+        profitColor = profitPct > 0 ? color.new(#00FF41, 0) : color.new(#FF0055, 0)
+        barsHeld = bar_index - entryBar
+
+        exitReason = ""
+        if exit_wt
+            exitReason := exitReason + "WT "
+        if exit_st
+            exitReason := exitReason + "ST "
+        if exit_tema
+            exitReason := exitReason + "TEMA "
+
+        labelText = "🛑 EXIT\n" +
+             "Price: " + str.tostring(close_tf, "#.##") + "\n" +
+             "P&L: " + str.tostring(profitPct, "#.##") + "%\n" +
+             "━━━━━━━━━━━━━\n" +
+             "Bars: " + str.tostring(barsHeld) + "\n" +
+             "Reason: " + exitReason
+
+        label.new(bar_index, high_tf,
+             text=labelText,
+             style=label.style_label_down,
+             color=profitColor,
+             textcolor=color.white,
+             size=size.normal,
+             tooltip="Exit triggered by " + str.tostring(exit_count) + " conditions")
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// DASHBOARD
+// DASHBOARD MIGLIORATA
 // ═══════════════════════════════════════════════════════════════════════════════
 
-var table dashboard = table.new(position.top_right, 2, 10, border_width=2)
+var table dashboard = table.new(position.top_right, 2, 17, border_width=2)
 
 if showDashboard and barstate.islast
+    // ─────────────────────────────────────────────────────────────────────────
     // Header
-    table.cell(dashboard, 0, 0, "LONG STRATEGY", text_color=color.white, bgcolor=color.new(color.blue, 20), text_size=size.large)
-    table.cell(dashboard, 1, 0, inLong ? "🟢 IN TRADE" : "⚪ WAITING", text_color=color.white, bgcolor=inLong ? color.green : color.gray, text_size=size.large)
-    
-    // Position info
+    // ─────────────────────────────────────────────────────────────────────────
+    table.cell(dashboard, 0, 0, "TEMA-ST-WT LONG", text_color=color.white, bgcolor=color.new(#0066FF, 0), text_size=size.large)
+    table.cell(dashboard, 1, 0, inLong ? "🟢 IN TRADE" : "⚪ WAITING", text_color=color.white, bgcolor=inLong ? color.new(#00FF41, 20) : color.new(color.gray, 30), text_size=size.large)
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Position Info
+    // ─────────────────────────────────────────────────────────────────────────
     if inLong
         currentPnL = ((close_tf - entryPrice) / entryPrice) * 100
         bars_in_trade = bar_index - entryBar
-        
-        table.cell(dashboard, 0, 1, "Entry Price", text_color=color.white, bgcolor=color.new(color.gray, 50), text_size=size.normal)
-        table.cell(dashboard, 1, 1, str.tostring(entryPrice, "#.##"), text_color=color.white, bgcolor=color.new(color.gray, 60), text_size=size.normal)
-        
-        table.cell(dashboard, 0, 2, "Current P&L", text_color=color.white, bgcolor=color.new(color.gray, 50), text_size=size.normal)
-        table.cell(dashboard, 1, 2, str.tostring(currentPnL, "#.##") + "%", text_color=currentPnL >= 0 ? color.lime : color.red, bgcolor=color.new(color.gray, 60), text_size=size.normal)
-        
-        table.cell(dashboard, 0, 3, "Stop Loss", text_color=color.white, bgcolor=color.new(color.gray, 50), text_size=size.normal)
-        table.cell(dashboard, 1, 3, str.tostring(stopPrice, "#.##"), text_color=color.red, bgcolor=color.new(color.gray, 60), text_size=size.normal)
-        
-        table.cell(dashboard, 0, 4, "Take Profit", text_color=color.white, bgcolor=color.new(color.gray, 50), text_size=size.normal)
-        table.cell(dashboard, 1, 4, str.tostring(limitPrice, "#.##"), text_color=color.lime, bgcolor=color.new(color.gray, 60), text_size=size.normal)
-        
-        table.cell(dashboard, 0, 5, "Bars in trade", text_color=color.white, bgcolor=color.new(color.gray, 50), text_size=size.normal)
-        table.cell(dashboard, 1, 5, str.tostring(bars_in_trade), text_color=color.white, bgcolor=color.new(color.gray, 60), text_size=size.normal)
-    
-    // Exit conditions
-    table.cell(dashboard, 0, 6, "EXIT CONDITIONS", text_color=color.white, bgcolor=color.new(color.orange, 30), text_size=size.normal)
-    table.cell(dashboard, 1, 6, str.tostring(exit_count) + " / 3", text_color=color.white, bgcolor=exit_count >= 3 ? color.red : color.new(color.gray, 50), text_size=size.normal)
-    
-    table.cell(dashboard, 0, 7, "  Wave Trend", text_color=color.white, bgcolor=color.new(color.gray, 60), text_size=size.small)
-    table.cell(dashboard, 1, 7, exit_wt ? "✗" : "✓", text_color=exit_wt ? color.red : color.lime, bgcolor=color.new(color.gray, 70), text_size=size.small)
-    
-    table.cell(dashboard, 0, 8, "  Supertrend", text_color=color.white, bgcolor=color.new(color.gray, 60), text_size=size.small)
-    table.cell(dashboard, 1, 8, exit_st ? "✗" : "✓", text_color=exit_st ? color.red : color.lime, bgcolor=color.new(color.gray, 70), text_size=size.small)
-    
-    table.cell(dashboard, 0, 9, "  TEMA", text_color=color.white, bgcolor=color.new(color.gray, 60), text_size=size.small)
-    table.cell(dashboard, 1, 9, exit_tema ? "✗" : "✓", text_color=exit_tema ? color.red : color.lime, bgcolor=color.new(color.gray, 70), text_size=size.small)
 
-// Alerts
-alertcondition(longOK and not inLong, "Long Entry", "🟢 LONG ENTRY {{ticker}} @ {{close}}")
-alertcondition(exit_bar, "Exit Signal", "🔴 EXIT {{ticker}} @ {{close}}")
+        table.cell(dashboard, 0, 1, "Entry Price", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.normal)
+        table.cell(dashboard, 1, 1, str.tostring(entryPrice, "#.##"), text_color=color.white, bgcolor=color.new(#2D2D2D, 0), text_size=size.normal)
+
+        table.cell(dashboard, 0, 2, "Current P&L", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.normal)
+        pnlColor = currentPnL >= 0 ? color.new(#00FF41, 0) : color.new(#FF0055, 0)
+        table.cell(dashboard, 1, 2, str.tostring(currentPnL, "#.##") + "%", text_color=pnlColor, bgcolor=color.new(#2D2D2D, 0), text_size=size.normal)
+
+        table.cell(dashboard, 0, 3, "⛔ Stop Loss", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.normal)
+        table.cell(dashboard, 1, 3, str.tostring(stopPrice, "#.##"), text_color=color.new(#FF0055, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.normal)
+
+        table.cell(dashboard, 0, 4, "🎯 Take Profit", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.normal)
+        table.cell(dashboard, 1, 4, str.tostring(limitPrice, "#.##"), text_color=color.new(#00FF41, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.normal)
+
+        table.cell(dashboard, 0, 5, "Bars in Trade", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.normal)
+        table.cell(dashboard, 1, 5, str.tostring(bars_in_trade), text_color=color.white, bgcolor=color.new(#2D2D2D, 0), text_size=size.normal)
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Entry Filters Status
+    // ─────────────────────────────────────────────────────────────────────────
+    if showFilters
+        table.cell(dashboard, 0, 6, "🔍 ENTRY FILTERS", text_color=color.white, bgcolor=color.new(#FF6B00, 20), text_size=size.normal)
+        filtersPassed = (rsiOK ? 1 : 0) + (volumeOK ? 1 : 0) + (trendStrong ? 1 : 0) + (not hasGap ? 1 : 0)
+        table.cell(dashboard, 1, 6, str.tostring(filtersPassed) + " / 4 OK", text_color=color.white, bgcolor=filtersPassed >= 3 ? color.new(#00FF41, 30) : color.new(#FF0055, 30), text_size=size.normal)
+
+        table.cell(dashboard, 0, 7, "  RSI < " + str.tostring(rsiOverbought), text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
+        table.cell(dashboard, 1, 7, rsiOK ? "✓ " + str.tostring(rsi, "#.#") : "✗ " + str.tostring(rsi, "#.#"), text_color=rsiOK ? color.new(#00FF41, 0) : color.new(#FF0055, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+
+        table.cell(dashboard, 0, 8, "  Volume > MA", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
+        table.cell(dashboard, 1, 8, volumeOK ? "✓" : "✗", text_color=volumeOK ? color.new(#00FF41, 0) : color.new(#FF0055, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+
+        table.cell(dashboard, 0, 9, "  ADX > " + str.tostring(adxThreshold, "#"), text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
+        table.cell(dashboard, 1, 9, trendStrong ? "✓ " + str.tostring(adx, "#.#") : "✗ " + str.tostring(adx, "#.#"), text_color=trendStrong ? color.new(#00FF41, 0) : color.new(#FF0055, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+
+        table.cell(dashboard, 0, 10, "  No Gap", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
+        table.cell(dashboard, 1, 10, not hasGap ? "✓" : "✗", text_color=not hasGap ? color.new(#00FF41, 0) : color.new(#FF0055, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+
+        // Volatility Regime
+        volRegimeText = isHighVol ? "HIGH ⚠️" : isLowVol ? "LOW" : "NORMAL"
+        volRegimeColor = isHighVol ? color.new(#FF0055, 0) : isLowVol ? color.new(#FFD700, 0) : color.new(#00FF41, 0)
+        table.cell(dashboard, 0, 11, "  Volatility", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
+        table.cell(dashboard, 1, 11, volRegimeText, text_color=volRegimeColor, bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Exit Conditions
+    // ─────────────────────────────────────────────────────────────────────────
+    table.cell(dashboard, 0, 12, "🚪 EXIT CONDITIONS", text_color=color.white, bgcolor=color.new(#FF6B00, 20), text_size=size.normal)
+    table.cell(dashboard, 1, 12, str.tostring(exit_count) + " / 3", text_color=color.white, bgcolor=exit_count >= 3 ? color.new(#FF0055, 30) : color.new(#2D2D2D, 0), text_size=size.normal)
+
+    table.cell(dashboard, 0, 13, "  Wave Trend", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
+    table.cell(dashboard, 1, 13, exit_wt ? "✗" : "✓", text_color=exit_wt ? color.new(#FF0055, 0) : color.new(#00FF41, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+
+    table.cell(dashboard, 0, 14, "  Supertrend", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
+    table.cell(dashboard, 1, 14, exit_st ? "✗" : "✓", text_color=exit_st ? color.new(#FF0055, 0) : color.new(#00FF41, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+
+    table.cell(dashboard, 0, 15, "  TEMA", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
+    table.cell(dashboard, 1, 15, exit_tema ? "✗" : "✓", text_color=exit_tema ? color.new(#FF0055, 0) : color.new(#00FF41, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Footer - Session Info
+    // ─────────────────────────────────────────────────────────────────────────
+    table.cell(dashboard, 0, 16, "Timeframe", text_color=color.white, bgcolor=color.new(#0066FF, 30), text_size=size.tiny)
+    table.cell(dashboard, 1, 16, tf + " min", text_color=color.white, bgcolor=color.new(#0066FF, 30), text_size=size.tiny)
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ALERTS - Enhanced with filter info
+// ═══════════════════════════════════════════════════════════════════════════════
+
+alertcondition(longOK and not inLong, "Long Entry", "🚀 LONG ENTRY {{ticker}} @ {{close}} | RSI: " + str.tostring(rsi, "#.#") + " | ADX: " + str.tostring(adx, "#.#") + " | All filters passed ✓")
+alertcondition(exit_bar, "Exit Signal", "🛑 EXIT {{ticker}} @ {{close}} | " + str.tostring(exit_count) + " exit conditions triggered")
+alertcondition(hasGap, "Gap Detected", "⚠️ GAP DETECTED on {{ticker}} | Size: " + str.tostring(gapSize*100, "#.##") + "%")
+alertcondition(not trendStrong and barstate.isconfirmed, "Choppy Market", "⚠️ CHOPPY MARKET {{ticker}} | ADX: " + str.tostring(adx, "#.#") + " below threshold")
+alertcondition(not rsiOK and barstate.isconfirmed, "RSI Overbought", "⚠️ RSI OVERBOUGHT {{ticker}} | RSI: " + str.tostring(rsi, "#.#"))
