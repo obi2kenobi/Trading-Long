@@ -294,8 +294,7 @@ if showLabels
              style=label.style_label_up,
              color=color.new(#00FF41, 0),
              textcolor=color.white,
-             size=size.normal,
-             tooltip="All filters passed - High probability setup")
+             size=size.normal)
 
     // ─────────────────────────────────────────────────────────────────────────
     // Exit Label - Con dettagli performance
@@ -325,8 +324,7 @@ if showLabels
              style=label.style_label_down,
              color=profitColor,
              textcolor=color.white,
-             size=size.normal,
-             tooltip="Exit triggered by " + str.tostring(exit_count) + " conditions")
+             size=size.normal)
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DASHBOARD MIGLIORATA
