@@ -6,16 +6,18 @@
 // @author       Trading-Long Strategy
 // ══════════════════════════════════════════════════════════════════════════════
 //
-// 🚀 MIGLIORAMENTI v6.0:
+// 🚀 MIGLIORAMENTI v6.0 - SISTEMA INTELLIGENTE:
 // ───────────────────────────────────────────────────────────────────────────
-// ✓ Filtro RSI - Evita entrate in zone di ipercomprato (default: RSI > 70)
-// ✓ Filtro Volume - Richiede volume superiore alla media (protezione basso volume)
-// ✓ ADX Trend Strength - Evita entrate in mercati choppy/laterali (ADX < 25)
-// ✓ Volatility Regime - Identifica alta/bassa volatilità per adattamento dinamico
-// ✓ Gap Detection - Rileva e segnala gap di apertura
+// ✓ SISTEMA FILTRI FLESSIBILE - Scoring system configurabile (default: 2/4)
+// ✓ Filtro RSI - Evita entrate in zone di ipercomprato (default: RSI < 75)
+// ✓ Filtro Volume - Richiede volume >= media (default: 1.0x, protezione volume)
+// ✓ ADX Trend Strength - Evita mercati choppy (default: ADX > 20)
+// ✓ Gap Detection - Rileva gap significativi (default: > 0.8%)
+// ✓ Filtri ON/OFF Individuali - Ogni filtro può essere abilitato/disabilitato
+// ✓ Volatility Regime - Identifica alta/bassa volatilità per adattamento
 // ✓ Slippage Management - Calcolo realistico con margine di slippage su SL/TP
-// ✓ Grafica Migliorata - Colori più vividi, dashboard espansa, warning signals
-// ✓ Dashboard Avanzata - Mostra stato filtri in tempo reale e metriche dettagliate
+// ✓ Grafica Migliorata - Colori vividi, dashboard espansa, warning signals
+// ✓ Dashboard Dinamica - Mostra score filtri in tempo reale con stato ON/OFF
 // ══════════════════════════════════════════════════════════════════════════════
 
 // — INPUT TIMEFRAME —
@@ -25,7 +27,7 @@ tf = input.string("120", "Timeframe", options = ["120","240"])
 [close_tf, high_tf, low_tf, hl2_tf, hlc3_tf, vol_tf] = request.security(syminfo.tickerid, tf, [close, high, low, hl2, hlc3, volume])
 
 // — STRATEGY SETTINGS —
-strategy("TEMA-ST-WT LONG OPT", overlay=true,
+strategy("TEMA-ST-WT LONG v6.0 ADV", overlay=true,
      initial_capital    = 100000,
      default_qty_type   = strategy.percent_of_equity,
      default_qty_value  = 100,
@@ -56,27 +58,37 @@ wtN2_out     = 21
 // NUOVI FILTRI AVANZATI
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Sistema Filtri Intelligente
+// ─────────────────────────────────────────────────────────────────────────────
+useAdvancedFilters = input.bool(true, "🔧 Abilita Filtri Avanzati", group="Advanced Filters")
+minFiltersRequired = input.int(2, "Filtri Minimi Richiesti (su 4)", minval=0, maxval=4, group="Advanced Filters", tooltip="0=Nessun filtro, 2=Bilanciato, 4=Molto restrittivo")
+
 // RSI Settings
-rsiLen       = input.int(14, "RSI Period", minval=5, maxval=30)
-rsiOverbought = input.int(70, "RSI Overbought Level", minval=60, maxval=80)
+enableRSI    = input.bool(true, "Abilita Filtro RSI", group="RSI Filter")
+rsiLen       = input.int(14, "RSI Period", minval=5, maxval=30, group="RSI Filter")
+rsiOverbought = input.int(75, "RSI Overbought Level", minval=60, maxval=90, group="RSI Filter")
 
 // Volume Settings
-volMaLen     = input.int(20, "Volume MA Period", minval=10, maxval=50)
-volMultiplier = input.float(1.2, "Volume Multiplier", minval=0.5, maxval=3.0, step=0.1)
+enableVolume = input.bool(true, "Abilita Filtro Volume", group="Volume Filter")
+volMaLen     = input.int(20, "Volume MA Period", minval=10, maxval=50, group="Volume Filter")
+volMultiplier = input.float(1.0, "Volume Multiplier", minval=0.5, maxval=3.0, step=0.1, group="Volume Filter")
 
 // ADX Settings (Anti-Choppy)
-adxLen       = input.int(14, "ADX Period", minval=7, maxval=30)
-adxThreshold = input.float(25.0, "ADX Minimum (Trend Strength)", minval=15.0, maxval=40.0, step=1.0)
-
-// Volatility Regime
-atrMaLen     = input.int(50, "ATR MA Period", minval=20, maxval=100)
-highVolMultiplier = input.float(1.5, "High Volatility Threshold", minval=1.2, maxval=2.5, step=0.1)
+enableADX    = input.bool(true, "Abilita Filtro ADX", group="ADX Filter")
+adxLen       = input.int(14, "ADX Period", minval=7, maxval=30, group="ADX Filter")
+adxThreshold = input.float(20.0, "ADX Minimum (Trend Strength)", minval=15.0, maxval=40.0, step=1.0, group="ADX Filter")
 
 // Gap Detection
-gapThreshold = input.float(0.5, "Gap Threshold %", minval=0.2, maxval=2.0, step=0.1) / 100
+enableGapFilter = input.bool(true, "Abilita Filtro Gap", group="Gap Filter")
+gapThreshold = input.float(0.8, "Gap Threshold %", minval=0.2, maxval=2.0, step=0.1, group="Gap Filter") / 100
+
+// Volatility Regime
+atrMaLen     = input.int(50, "ATR MA Period", minval=20, maxval=100, group="Volatility")
+highVolMultiplier = input.float(1.5, "High Volatility Threshold", minval=1.2, maxval=2.5, step=0.1, group="Volatility")
 
 // Slippage
-slippagePerc = input.float(0.05, "Slippage Assumption %", minval=0.01, maxval=0.5, step=0.01) / 100
+slippagePerc = input.float(0.05, "Slippage Assumption %", minval=0.01, maxval=0.5, step=0.01, group="Risk Management") / 100
 
 // Opzioni visualizzazione
 showLabels   = input.bool(true, "Mostra labels trade")
@@ -177,17 +189,27 @@ rangeCond  = (rangeHigh5 - rangeLow5) / close_tf < 0.01
 isLateral  = isFlatSlope or rangeCond
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// CONDIZIONI ENTRY COMPLETE
+// CONDIZIONI ENTRY COMPLETE - Sistema Intelligente
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Condizioni base (originali)
+// Condizioni base (originali) - SEMPRE RICHIESTE
 baseConditions = (trend_in == 1) and wtUp and (distATR <= maxDistATR) and not isLateral
 
-// Nuovi filtri di sicurezza
-safetyFilters = rsiOK and volumeOK and trendStrong and not hasGap
+// Sistema di Scoring dei Filtri Avanzati
+rsiFilterPass    = enableRSI ? (rsiOK ? 1 : 0) : 1
+volumeFilterPass = enableVolume ? (volumeOK ? 1 : 0) : 1
+adxFilterPass    = enableADX ? (trendStrong ? 1 : 0) : 1
+gapFilterPass    = enableGapFilter ? (not hasGap ? 1 : 0) : 1
+
+// Calcolo filtri attivi e passati
+activeFiltersCount = (enableRSI ? 1 : 0) + (enableVolume ? 1 : 0) + (enableADX ? 1 : 0) + (enableGapFilter ? 1 : 0)
+passedFiltersCount = rsiFilterPass + volumeFilterPass + adxFilterPass + gapFilterPass
+
+// Logica intelligente: se filtri disabilitati, bypassa il check
+filtersOK = not useAdvancedFilters or (activeFiltersCount == 0) or (passedFiltersCount >= minFiltersRequired)
 
 // Condizione entry finale
-longOK = baseConditions and safetyFilters
+longOK = baseConditions and filtersOK
 inLong = strategy.position_size > 0
 
 // Entry con slippage consideration
@@ -281,11 +303,14 @@ if showLabels
     // ─────────────────────────────────────────────────────────────────────────
     if longOK and not inLong
         volRegimeLabel = isHighVol ? "HIGH VOL ⚠️" : isNormalVol ? "NORMAL VOL" : "LOW VOL"
+        filtersInfo = useAdvancedFilters ? "Filters: " + str.tostring(passedFiltersCount) + "/" + str.tostring(minFiltersRequired) : "Filters: OFF"
+
         labelText = "🚀 LONG ENTRY\n" +
              "Price: " + str.tostring(close_tf, "#.##") + "\n" +
              "SL: " + str.tostring(stopPrice, "#.##") + " (-" + str.tostring(stopPerc*100, "#.#") + "%)\n" +
              "TP: " + str.tostring(limitPrice, "#.##") + " (+" + str.tostring(tpPerc*100, "#.#") + "%)\n" +
              "━━━━━━━━━━━━━\n" +
+             filtersInfo + "\n" +
              "RSI: " + str.tostring(rsi, "#.#") + " | ADX: " + str.tostring(adx, "#.#") + "\n" +
              volRegimeLabel
 
@@ -363,24 +388,42 @@ if showDashboard and barstate.islast
         table.cell(dashboard, 1, 5, str.tostring(bars_in_trade), text_color=color.white, bgcolor=color.new(#2D2D2D, 0), text_size=size.normal)
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Entry Filters Status
+    // Entry Filters Status - Sistema Intelligente
     // ─────────────────────────────────────────────────────────────────────────
     if showFilters
-        table.cell(dashboard, 0, 6, "🔍 ENTRY FILTERS", text_color=color.white, bgcolor=color.new(#FF6B00, 20), text_size=size.normal)
-        filtersPassed = (rsiOK ? 1 : 0) + (volumeOK ? 1 : 0) + (trendStrong ? 1 : 0) + (not hasGap ? 1 : 0)
-        table.cell(dashboard, 1, 6, str.tostring(filtersPassed) + " / 4 OK", text_color=color.white, bgcolor=filtersPassed >= 3 ? color.new(#00FF41, 30) : color.new(#FF0055, 30), text_size=size.normal)
+        filtersStatus = useAdvancedFilters ? str.tostring(passedFiltersCount) + "/" + str.tostring(minFiltersRequired) + " REQ" : "DISABLED"
+        filtersStatusColor = not useAdvancedFilters ? color.new(color.gray, 30) : passedFiltersCount >= minFiltersRequired ? color.new(#00FF41, 30) : color.new(#FF0055, 30)
 
-        table.cell(dashboard, 0, 7, "  RSI < " + str.tostring(rsiOverbought), text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
-        table.cell(dashboard, 1, 7, rsiOK ? "✓ " + str.tostring(rsi, "#.#") : "✗ " + str.tostring(rsi, "#.#"), text_color=rsiOK ? color.new(#00FF41, 0) : color.new(#FF0055, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+        table.cell(dashboard, 0, 6, "🔍 FILTERS SCORE", text_color=color.white, bgcolor=color.new(#FF6B00, 20), text_size=size.normal)
+        table.cell(dashboard, 1, 6, filtersStatus, text_color=color.white, bgcolor=filtersStatusColor, text_size=size.normal)
 
-        table.cell(dashboard, 0, 8, "  Volume > MA", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
-        table.cell(dashboard, 1, 8, volumeOK ? "✓" : "✗", text_color=volumeOK ? color.new(#00FF41, 0) : color.new(#FF0055, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+        // RSI Filter
+        rsiLabel = enableRSI ? "  RSI < " + str.tostring(rsiOverbought) : "  RSI (OFF)"
+        rsiValue = enableRSI ? (rsiOK ? "✓ " + str.tostring(rsi, "#.#") : "✗ " + str.tostring(rsi, "#.#")) : "-"
+        rsiColor = enableRSI ? (rsiOK ? color.new(#00FF41, 0) : color.new(#FF0055, 0)) : color.new(color.gray, 0)
+        table.cell(dashboard, 0, 7, rsiLabel, text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
+        table.cell(dashboard, 1, 7, rsiValue, text_color=rsiColor, bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
 
-        table.cell(dashboard, 0, 9, "  ADX > " + str.tostring(adxThreshold, "#"), text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
-        table.cell(dashboard, 1, 9, trendStrong ? "✓ " + str.tostring(adx, "#.#") : "✗ " + str.tostring(adx, "#.#"), text_color=trendStrong ? color.new(#00FF41, 0) : color.new(#FF0055, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+        // Volume Filter
+        volLabel = enableVolume ? "  Vol > MA*" + str.tostring(volMultiplier, "#.#") : "  Volume (OFF)"
+        volValue = enableVolume ? (volumeOK ? "✓" : "✗") : "-"
+        volColor = enableVolume ? (volumeOK ? color.new(#00FF41, 0) : color.new(#FF0055, 0)) : color.new(color.gray, 0)
+        table.cell(dashboard, 0, 8, volLabel, text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
+        table.cell(dashboard, 1, 8, volValue, text_color=volColor, bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
 
-        table.cell(dashboard, 0, 10, "  No Gap", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
-        table.cell(dashboard, 1, 10, not hasGap ? "✓" : "✗", text_color=not hasGap ? color.new(#00FF41, 0) : color.new(#FF0055, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+        // ADX Filter
+        adxLabel = enableADX ? "  ADX > " + str.tostring(adxThreshold, "#") : "  ADX (OFF)"
+        adxValue = enableADX ? (trendStrong ? "✓ " + str.tostring(adx, "#.#") : "✗ " + str.tostring(adx, "#.#")) : "-"
+        adxColor = enableADX ? (trendStrong ? color.new(#00FF41, 0) : color.new(#FF0055, 0)) : color.new(color.gray, 0)
+        table.cell(dashboard, 0, 9, adxLabel, text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
+        table.cell(dashboard, 1, 9, adxValue, text_color=adxColor, bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+
+        // Gap Filter
+        gapLabel = enableGapFilter ? "  No Gap >" + str.tostring(gapThreshold*100, "#.#") + "%" : "  Gap (OFF)"
+        gapValue = enableGapFilter ? (not hasGap ? "✓" : "✗") : "-"
+        gapColor = enableGapFilter ? (not hasGap ? color.new(#00FF41, 0) : color.new(#FF0055, 0)) : color.new(color.gray, 0)
+        table.cell(dashboard, 0, 10, gapLabel, text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
+        table.cell(dashboard, 1, 10, gapValue, text_color=gapColor, bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
 
         // Volatility Regime
         volRegimeText = isHighVol ? "HIGH ⚠️" : isLowVol ? "LOW" : "NORMAL"
