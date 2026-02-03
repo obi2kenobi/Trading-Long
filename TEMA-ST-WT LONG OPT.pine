@@ -351,12 +351,12 @@ bgcolor(showBgEffective and inLong ? color.new(#00FF41, 95) : na, title="Positio
 bgcolor(showBgEffective and not trendStrong ? color.new(color.orange, 97) : na, title="Choppy Market Warning")
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SL/TP Levels - Linee più sottili per non coprire il grafico
+// SL/TP Levels - Linee orizzontali ben visibili
 // ─────────────────────────────────────────────────────────────────────────────
 showLevelsEffective = showLevels and not cleanViewMode
-plot(showLevelsEffective and inLong ? stopPrice : na, "Stop Loss", color=color.new(#FF0055, 30), linewidth=1, style=plot.style_linebr)
-plot(showLevelsEffective and inLong ? limitPrice : na, "Take Profit", color=color.new(#00FF41, 30), linewidth=1, style=plot.style_linebr)
-plot(showLevelsEffective and inLong ? entryPrice : na, "Entry", color=color.new(#FFFFFF, 50), linewidth=1, style=plot.style_linebr)
+plot(showLevelsEffective and inLong ? stopPrice : na, "Stop Loss", color=color.new(#FF0055, 0), linewidth=2, style=plot.style_linebr)
+plot(showLevelsEffective and inLong ? limitPrice : na, "Take Profit", color=color.new(#00FF41, 0), linewidth=2, style=plot.style_linebr)
+plot(showLevelsEffective and inLong ? entryPrice : na, "Entry", color=color.new(#FFFF00, 0), linewidth=1, style=plot.style_linebr)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Entry/Exit Signals - Dimensione ridotta per leggibilità
@@ -388,6 +388,9 @@ getLabelSize(_size) =>
 
 labelDisplaySize = getLabelSize(labelSize)
 
+// Offset per allontanare i label dalle candele (basato su ATR)
+labelOffset = ta.atr(14) * 1.5
+
 // Clean View Mode disabilita i label
 showLabelsEffective = showLabels and not cleanViewMode
 
@@ -416,7 +419,7 @@ if showLabelsEffective
                  "SL:" + slInfo + " TP:" + tpInfo + "\n" +
                  "Trail:" + trailingInfo + " F:" + filtersInfo
 
-        label.new(bar_index, low_tf,
+        label.new(bar_index, low_tf - labelOffset,
              text=labelText,
              style=label.style_label_up,
              color=color.new(#00FF41, 20),
@@ -452,7 +455,7 @@ if showLabelsEffective
                  "P&L: " + str.tostring(profitPct, "#.##") + "%\n" +
                  "Bars:" + str.tostring(barsHeld) + " " + exitReason
 
-        label.new(bar_index, high_tf,
+        label.new(bar_index, high_tf + labelOffset,
              text=labelText,
              style=label.style_label_down,
              color=profitColor,
