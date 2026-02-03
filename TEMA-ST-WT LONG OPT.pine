@@ -389,7 +389,7 @@ getLabelSize(_size) =>
 labelDisplaySize = getLabelSize(labelSize)
 
 // Offset per allontanare i label dalle candele (basato su ATR)
-labelOffset = ta.atr(14) * 1.5
+labelOffset = ta.atr(14) * 4.0
 
 // Clean View Mode disabilita i label
 showLabelsEffective = showLabels and not cleanViewMode
