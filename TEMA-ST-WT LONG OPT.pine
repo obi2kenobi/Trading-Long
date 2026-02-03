@@ -1,12 +1,22 @@
 //@version=6
 // ══════════════════════════════════════════════════════════════════════════════
 // @title        TEMA-ST-WT LONG OPTIMIZED ADVANCED
-// @description  Versione ottimizzata con filtri avanzati e grafica migliorata
-// @version      6.0
+// @description  Versione ottimizzata con filtri avanzati e grafica ULTRA LEGGIBILE
+// @version      6.2
 // @author       Trading-Long Strategy
 // ══════════════════════════════════════════════════════════════════════════════
 //
-// 🚀 MIGLIORAMENTI v6.0 - SISTEMA INTELLIGENTE:
+// 🚀 MIGLIORAMENTI v6.2 - GRAFICA ULTRA LEGGIBILE:
+// ───────────────────────────────────────────────────────────────────────────
+// ✓ 🧹 CLEAN VIEW MODE - Modalità grafico pulito con un click
+// ✓ Labels Compatti - Meno testo, più leggibilità
+// ✓ Dimensione Segnali Configurabile - Da tiny a huge
+// ✓ Background Opzionale - Non più sempre visibile
+// ✓ Warning Signals Opzionali - G/R nascosti di default
+// ✓ Livelli SL/TP più sottili - Non coprono più le candele
+// ✓ Dashboard Rispetta Clean Mode
+//
+// 📊 FUNZIONALITÀ BASE (da v6.0/6.1):
 // ───────────────────────────────────────────────────────────────────────────
 // ✓ SISTEMA FILTRI FLESSIBILE - Scoring system configurabile (default: 2/4)
 // ✓ Filtro RSI - Evita entrate in zone di ipercomprato (default: RSI < 75)
@@ -18,8 +28,6 @@
 // ✓ 🔥 TRAILING STOP - Break-even automatico al +3.5% (configurabile)
 // ✓ Stop Loss Intelligente - Fisso % o ATR-based (dinamico su volatilità)
 // ✓ Risk Management Avanzato - SL/TP completamente configurabili
-// ✓ Slippage Management - Calcolo realistico con margine di slippage
-// ✓ Grafica Migliorata - Colori vividi, dashboard espansa, warning signals
 // ✓ Dashboard Dinamica - Mostra trailing status, filtri, e metriche real-time
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -30,7 +38,7 @@ tf = input.string("120", "Timeframe", options = ["120","240"])
 [close_tf, high_tf, low_tf, hl2_tf, hlc3_tf, vol_tf] = request.security(syminfo.tickerid, tf, [close, high, low, hl2, hlc3, volume])
 
 // — STRATEGY SETTINGS —
-strategy("TEMA-ST-WT LONG v6.0 ADV", overlay=true,
+strategy("TEMA-ST-WT LONG v6.2 ADV", overlay=true,
      initial_capital    = 100000,
      default_qty_type   = strategy.percent_of_equity,
      default_qty_value  = 100,
@@ -110,11 +118,18 @@ trailingOffsetPerc = input.float(0.0, "Trailing Offset %", minval=0.0, maxval=3.
 useTakeProfit = input.bool(true, "Usa Take Profit", group="Risk Management")
 takeProfitPerc = input.float(8.0, "Take Profit %", minval=2.0, maxval=20.0, step=0.5, group="Risk Management") / 100
 
-// Opzioni visualizzazione
-showLabels   = input.bool(true, "Mostra labels trade")
-showDashboard = input.bool(true, "Mostra dashboard")
-showLevels   = input.bool(true, "Mostra livelli SL/TP")
-showFilters  = input.bool(true, "Mostra stato filtri")
+// ─────────────────────────────────────────────────────────────────────────────
+// Opzioni Visualizzazione - CHART READABILITY
+// ─────────────────────────────────────────────────────────────────────────────
+cleanViewMode = input.bool(false, "🧹 CLEAN VIEW MODE (Grafico Pulito)", group="📊 Chart Display", tooltip="Attiva per nascondere la maggior parte degli elementi e avere un grafico più pulito")
+showLabels   = input.bool(true, "Mostra labels trade", group="📊 Chart Display")
+compactLabels = input.bool(true, "Labels compatti (meno info)", group="📊 Chart Display", tooltip="Labels più piccoli con solo le info essenziali")
+showDashboard = input.bool(true, "Mostra dashboard", group="📊 Chart Display")
+showLevels   = input.bool(true, "Mostra livelli SL/TP", group="📊 Chart Display")
+showFilters  = input.bool(true, "Mostra stato filtri in dashboard", group="📊 Chart Display")
+showWarnings = input.bool(false, "Mostra warning signals (G/R)", group="📊 Chart Display", tooltip="Mostra indicatori Gap e RSI sul grafico")
+showBackground = input.bool(false, "Mostra background volatilità", group="📊 Chart Display", tooltip="Colora sfondo in base alla volatilità")
+signalSize   = input.string("small", "Dimensione segnali Entry/Exit", options=["tiny", "small", "normal", "large", "huge"], group="📊 Chart Display")
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // INDICATORS
@@ -327,102 +342,137 @@ plot(trend_in==1 ? _up_in : na, "ST ↑ Bullish", color=stUpColor, linewidth=3, 
 plot(trend_in==-1 ? _dn_in : na, "ST ↓ Bearish", color=stDnColor, linewidth=3, style=plot.style_linebr)
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Background - Zone colorate per volatilità
+// Background - Zone colorate per volatilità (opzionale)
 // ─────────────────────────────────────────────────────────────────────────────
-volColor = isHighVol ? color.new(color.red, 95) : isLowVol ? color.new(color.yellow, 97) : na
+showBgEffective = showBackground and not cleanViewMode
+volColor = showBgEffective and isHighVol ? color.new(color.red, 95) : showBgEffective and isLowVol ? color.new(color.yellow, 97) : na
 bgcolor(volColor, title="Volatility Regime")
-bgcolor(inLong ? color.new(#00FF41, 93) : na, title="Position Active")
-bgcolor(not trendStrong ? color.new(color.orange, 97) : na, title="Choppy Market Warning")
+bgcolor(showBgEffective and inLong ? color.new(#00FF41, 95) : na, title="Position Active")
+bgcolor(showBgEffective and not trendStrong ? color.new(color.orange, 97) : na, title="Choppy Market Warning")
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SL/TP Levels - Linee più evidenti
+// SL/TP Levels - Linee più sottili per non coprire il grafico
 // ─────────────────────────────────────────────────────────────────────────────
-plot(showLevels and inLong ? stopPrice : na, "⛔ Stop Loss", color=color.new(#FF0055, 0), linewidth=3, style=plot.style_cross)
-plot(showLevels and inLong ? limitPrice : na, "🎯 Take Profit", color=color.new(#00FF41, 0), linewidth=3, style=plot.style_cross)
-plot(showLevels and inLong ? entryPrice : na, "📍 Entry", color=color.new(#FFFFFF, 0), linewidth=2, style=plot.style_circles)
+showLevelsEffective = showLevels and not cleanViewMode
+plot(showLevelsEffective and inLong ? stopPrice : na, "Stop Loss", color=color.new(#FF0055, 30), linewidth=1, style=plot.style_linebr)
+plot(showLevelsEffective and inLong ? limitPrice : na, "Take Profit", color=color.new(#00FF41, 30), linewidth=1, style=plot.style_linebr)
+plot(showLevelsEffective and inLong ? entryPrice : na, "Entry", color=color.new(#FFFFFF, 50), linewidth=1, style=plot.style_linebr)
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Entry/Exit Signals - Più visibili
+// Entry/Exit Signals - Dimensione configurabile
 // ─────────────────────────────────────────────────────────────────────────────
-plotshape(longOK and not inLong, "🚀 LONG ENTRY", shape.triangleup, location.belowbar, color.new(#00FF41, 0), size=size.huge)
-plotshape(exit_bar, "🛑 EXIT", shape.triangledown, location.abovebar, color.new(#FF0055, 0), size=size.huge)
+// Converti stringa in size per plotshape
+signalSizeVal = signalSize == "tiny" ? size.tiny : signalSize == "small" ? size.small : signalSize == "normal" ? size.normal : signalSize == "large" ? size.large : size.small
+
+// In Clean View Mode nascondi i triangoli
+showSignals = not cleanViewMode
+plotshape(showSignals and longOK and not inLong, "LONG ENTRY", shape.triangleup, location.belowbar, color.new(#00FF41, 0), size=signalSizeVal)
+plotshape(showSignals and exit_bar, "EXIT", shape.triangledown, location.abovebar, color.new(#FF0055, 0), size=signalSizeVal)
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Warning Signals - Segnali di avviso
+// Warning Signals - Opzionali (default OFF per grafico pulito)
 // ─────────────────────────────────────────────────────────────────────────────
-plotchar(hasGap and barstate.isconfirmed, "⚠️ GAP", "G", location.top, color.new(color.orange, 0), size=size.small)
-plotchar(not rsiOK and barstate.isconfirmed, "⚠️ RSI High", "R", location.top, color.new(color.red, 0), size=size.small)
+showWarningsEffective = showWarnings and not cleanViewMode
+plotchar(showWarningsEffective and hasGap and barstate.isconfirmed, "GAP", "G", location.top, color.new(color.orange, 0), size=size.tiny)
+plotchar(showWarningsEffective and not rsiOK and barstate.isconfirmed, "RSI High", "R", location.top, color.new(color.red, 0), size=size.tiny)
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// LABELS
+// LABELS - Versione migliorata per leggibilità
 // ═══════════════════════════════════════════════════════════════════════════════
 
-if showLabels
+// Funzione helper per dimensione label
+getLabelSize(_size) =>
+    switch _size
+        "tiny" => size.tiny
+        "small" => size.small
+        "normal" => size.normal
+        "large" => size.large
+        "huge" => size.huge
+        => size.small
+
+labelDisplaySize = getLabelSize(signalSize)
+
+// Clean View Mode disabilita i label
+showLabelsEffective = showLabels and not cleanViewMode
+
+if showLabelsEffective
     // ─────────────────────────────────────────────────────────────────────────
-    // Entry Label - Con info filtri
+    // Entry Label - Versione compatta o completa
     // ─────────────────────────────────────────────────────────────────────────
     if longOK and not inLong
-        volRegimeLabel = isHighVol ? "HIGH VOL ⚠️" : isNormalVol ? "NORMAL VOL" : "LOW VOL"
-        filtersInfo = useAdvancedFilters ? "Filters: " + str.tostring(passedFiltersCount) + "/" + str.tostring(minFiltersRequired) : "Filters: OFF"
+        labelText = ""
 
-        slInfo = useFixedStopLoss ? str.tostring(fixedStopPerc*100, "#.#") + "%" :
-                 useATRStopLoss ? str.tostring(atrStopMultiplier, "#.#") + " ATR" : "N/A"
-        tpInfo = useTakeProfit ? str.tostring(takeProfitPerc*100, "#.#") + "%" : "None"
-        trailingInfo = enableTrailing ? "✓ @" + str.tostring(trailingActivationPerc*100, "#.#") + "%" : "✗"
+        if compactLabels
+            // VERSIONE COMPATTA - Solo info essenziali
+            labelText := "LONG " + str.tostring(close_tf, "#.##") + "\n" +
+                 "+" + str.tostring(takeProfitPerc*100, "#") + "% / -" + str.tostring(fixedStopPerc*100, "#") + "%"
+        else
+            // VERSIONE COMPLETA - Tutte le info
+            volRegimeLabel = isHighVol ? "HIGH VOL" : isNormalVol ? "NORMAL" : "LOW"
+            filtersInfo = useAdvancedFilters ? str.tostring(passedFiltersCount) + "/" + str.tostring(minFiltersRequired) : "OFF"
+            slInfo = useFixedStopLoss ? str.tostring(fixedStopPerc*100, "#.#") + "%" :
+                     useATRStopLoss ? str.tostring(atrStopMultiplier, "#.#") + "ATR" : "N/A"
+            tpInfo = useTakeProfit ? str.tostring(takeProfitPerc*100, "#.#") + "%" : "-"
+            trailingInfo = enableTrailing ? "@" + str.tostring(trailingActivationPerc*100, "#.#") + "%" : "-"
 
-        labelText = "🚀 LONG ENTRY\n" +
-             "Price: " + str.tostring(close_tf, "#.##") + "\n" +
-             "SL: " + slInfo + " | TP: " + tpInfo + "\n" +
-             "Trailing: " + trailingInfo + "\n" +
-             "━━━━━━━━━━━━━\n" +
-             filtersInfo + "\n" +
-             "RSI: " + str.tostring(rsi, "#.#") + " | ADX: " + str.tostring(adx, "#.#") + "\n" +
-             volRegimeLabel
+            labelText := "LONG ENTRY\n" +
+                 str.tostring(close_tf, "#.##") + "\n" +
+                 "SL:" + slInfo + " TP:" + tpInfo + "\n" +
+                 "Trail:" + trailingInfo + " F:" + filtersInfo
 
         label.new(bar_index, low_tf,
              text=labelText,
              style=label.style_label_up,
-             color=color.new(#00FF41, 0),
+             color=color.new(#00FF41, 20),
              textcolor=color.white,
-             size=size.normal)
+             size=compactLabels ? size.small : labelDisplaySize)
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Exit Label - Con dettagli performance
+    // Exit Label - Versione compatta o completa
     // ─────────────────────────────────────────────────────────────────────────
     if exit_bar
         profitPct = ((close_tf - entryPrice) / entryPrice) * 100
-        profitColor = profitPct > 0 ? color.new(#00FF41, 0) : color.new(#FF0055, 0)
+        profitColor = profitPct > 0 ? color.new(#00FF41, 20) : color.new(#FF0055, 20)
         barsHeld = bar_index - entryBar
 
-        exitReason = ""
-        if exit_wt
-            exitReason := exitReason + "WT "
-        if exit_st
-            exitReason := exitReason + "ST "
-        if exit_tema
-            exitReason := exitReason + "TEMA "
+        labelText = ""
 
-        labelText = "🛑 EXIT\n" +
-             "Price: " + str.tostring(close_tf, "#.##") + "\n" +
-             "P&L: " + str.tostring(profitPct, "#.##") + "%\n" +
-             "━━━━━━━━━━━━━\n" +
-             "Bars: " + str.tostring(barsHeld) + "\n" +
-             "Reason: " + exitReason
+        if compactLabels
+            // VERSIONE COMPATTA
+            profitSign = profitPct >= 0 ? "+" : ""
+            labelText := "EXIT " + profitSign + str.tostring(profitPct, "#.#") + "%"
+        else
+            // VERSIONE COMPLETA
+            exitReason = ""
+            if exit_wt
+                exitReason := exitReason + "WT "
+            if exit_st
+                exitReason := exitReason + "ST "
+            if exit_tema
+                exitReason := exitReason + "TEMA"
+
+            labelText := "EXIT\n" +
+                 str.tostring(close_tf, "#.##") + "\n" +
+                 "P&L: " + str.tostring(profitPct, "#.##") + "%\n" +
+                 "Bars:" + str.tostring(barsHeld) + " " + exitReason
 
         label.new(bar_index, high_tf,
              text=labelText,
              style=label.style_label_down,
              color=profitColor,
              textcolor=color.white,
-             size=size.normal)
+             size=compactLabels ? size.small : labelDisplaySize)
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DASHBOARD MIGLIORATA
 // ═══════════════════════════════════════════════════════════════════════════════
 
-var table dashboard = table.new(position.top_right, 2, 18, border_width=2)
+var table dashboard = table.new(position.top_right, 2, 18, border_width=1)
 
-if showDashboard and barstate.islast
+// Dashboard rispetta Clean View Mode
+showDashboardEffective = showDashboard and not cleanViewMode
+
+if showDashboardEffective and barstate.islast
     // ─────────────────────────────────────────────────────────────────────────
     // Header
     // ─────────────────────────────────────────────────────────────────────────
