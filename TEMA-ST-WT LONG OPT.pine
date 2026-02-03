@@ -129,7 +129,7 @@ showLevels   = input.bool(true, "Mostra livelli SL/TP", group="📊 Chart Displa
 showFilters  = input.bool(true, "Mostra stato filtri in dashboard", group="📊 Chart Display")
 showWarnings = input.bool(false, "Mostra warning signals (G/R)", group="📊 Chart Display", tooltip="Mostra indicatori Gap e RSI sul grafico")
 showBackground = input.bool(false, "Mostra background volatilità", group="📊 Chart Display", tooltip="Colora sfondo in base alla volatilità")
-signalSize   = input.string("small", "Dimensione segnali Entry/Exit", options=["tiny", "small", "normal", "large", "huge"], group="📊 Chart Display")
+labelSize    = input.string("small", "Dimensione labels", options=["tiny", "small", "normal", "large"], group="📊 Chart Display")
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // INDICATORS
@@ -359,15 +359,12 @@ plot(showLevelsEffective and inLong ? limitPrice : na, "Take Profit", color=colo
 plot(showLevelsEffective and inLong ? entryPrice : na, "Entry", color=color.new(#FFFFFF, 50), linewidth=1, style=plot.style_linebr)
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Entry/Exit Signals - Dimensione configurabile
+// Entry/Exit Signals - Dimensione ridotta per leggibilità
 // ─────────────────────────────────────────────────────────────────────────────
-// Converti stringa in size per plotshape
-signalSizeVal = signalSize == "tiny" ? size.tiny : signalSize == "small" ? size.small : signalSize == "normal" ? size.normal : signalSize == "large" ? size.large : size.small
-
 // In Clean View Mode nascondi i triangoli
 showSignals = not cleanViewMode
-plotshape(showSignals and longOK and not inLong, "LONG ENTRY", shape.triangleup, location.belowbar, color.new(#00FF41, 0), size=signalSizeVal)
-plotshape(showSignals and exit_bar, "EXIT", shape.triangledown, location.abovebar, color.new(#FF0055, 0), size=signalSizeVal)
+plotshape(showSignals and longOK and not inLong, "LONG ENTRY", shape.triangleup, location.belowbar, color.new(#00FF41, 0), size=size.small)
+plotshape(showSignals and exit_bar, "EXIT", shape.triangledown, location.abovebar, color.new(#FF0055, 0), size=size.small)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Warning Signals - Opzionali (default OFF per grafico pulito)
@@ -387,10 +384,9 @@ getLabelSize(_size) =>
         "small" => size.small
         "normal" => size.normal
         "large" => size.large
-        "huge" => size.huge
         => size.small
 
-labelDisplaySize = getLabelSize(signalSize)
+labelDisplaySize = getLabelSize(labelSize)
 
 // Clean View Mode disabilita i label
 showLabelsEffective = showLabels and not cleanViewMode
