@@ -351,12 +351,46 @@ bgcolor(showBgEffective and inLong ? color.new(#00FF41, 95) : na, title="Positio
 bgcolor(showBgEffective and not trendStrong ? color.new(color.orange, 97) : na, title="Choppy Market Warning")
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SL/TP Levels - Linee orizzontali ben visibili
+// SL/TP Levels - Linee orizzontali MOLTO EVIDENTI
 // ─────────────────────────────────────────────────────────────────────────────
 showLevelsEffective = showLevels and not cleanViewMode
-plot(showLevelsEffective and inLong ? stopPrice : na, "Stop Loss", color=color.new(#FF0055, 0), linewidth=2, style=plot.style_linebr)
-plot(showLevelsEffective and inLong ? limitPrice : na, "Take Profit", color=color.new(#00FF41, 0), linewidth=2, style=plot.style_linebr)
-plot(showLevelsEffective and inLong ? entryPrice : na, "Entry", color=color.new(#FFFF00, 0), linewidth=1, style=plot.style_linebr)
+
+// Plot linee SL/TP/Entry
+slPlot = plot(showLevelsEffective and inLong ? stopPrice : na, "Stop Loss", color=color.new(#FF0055, 0), linewidth=3, style=plot.style_linebr)
+tpPlot = plot(showLevelsEffective and inLong ? limitPrice : na, "Take Profit", color=color.new(#00FF41, 0), linewidth=3, style=plot.style_linebr)
+entryPlot = plot(showLevelsEffective and inLong ? entryPrice : na, "Entry", color=color.new(#FFFF00, 0), linewidth=2, style=plot.style_linebr)
+
+// Fill zone tra entry e SL/TP per evidenziare
+fill(entryPlot, slPlot, color=color.new(#FF0055, 90), title="Risk Zone")
+fill(entryPlot, tpPlot, color=color.new(#00FF41, 90), title="Profit Zone")
+
+// Labels con prezzo per SL/TP (solo ultima barra per non sovraccaricare)
+if showLevelsEffective and inLong and barstate.islast
+    // Stop Loss Label
+    slPct = ((stopPrice - entryPrice) / entryPrice) * 100
+    label.new(bar_index + 3, stopPrice,
+         text="SL: " + str.tostring(stopPrice, "#.##") + " (" + str.tostring(slPct, "#.#") + "%)",
+         style=label.style_label_left,
+         color=color.new(#FF0055, 20),
+         textcolor=color.white,
+         size=size.small)
+
+    // Take Profit Label
+    tpPct = ((limitPrice - entryPrice) / entryPrice) * 100
+    label.new(bar_index + 3, limitPrice,
+         text="TP: " + str.tostring(limitPrice, "#.##") + " (+" + str.tostring(tpPct, "#.#") + "%)",
+         style=label.style_label_left,
+         color=color.new(#00FF41, 20),
+         textcolor=color.white,
+         size=size.small)
+
+    // Entry Label
+    label.new(bar_index + 3, entryPrice,
+         text="ENTRY: " + str.tostring(entryPrice, "#.##"),
+         style=label.style_label_left,
+         color=color.new(#FFFF00, 20),
+         textcolor=color.black,
+         size=size.small)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Entry/Exit Signals - Dimensione ridotta per leggibilità
