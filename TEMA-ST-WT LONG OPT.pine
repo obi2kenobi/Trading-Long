@@ -490,16 +490,16 @@ if showLabelsEffective
         labelText = ""
 
         if compactLabels
-            // VERSIONE COMPATTA - Solo info essenziali
+            // VERSIONE COMPATTA - Solo info essenziali (mostra TP1/TP2/TP3)
             labelText := "LONG " + str.tostring(close_tf, "#.##") + "\n" +
-                 "+" + str.tostring(takeProfitPerc*100, "#") + "% / -" + str.tostring(fixedStopPerc*100, "#") + "%"
+                 "TP:" + str.tostring(tp1Perc*100, "#") + "/" + str.tostring(tp2Perc*100, "#") + "/" + str.tostring(tp3Perc*100, "#") + "% SL:-" + str.tostring(fixedStopPerc*100, "#") + "%"
         else
             // VERSIONE COMPLETA - Tutte le info
             volRegimeLabel = isHighVol ? "HIGH VOL" : isNormalVol ? "NORMAL" : "LOW"
             filtersInfo = useAdvancedFilters ? str.tostring(passedFiltersCount) + "/" + str.tostring(minFiltersRequired) : "OFF"
             slInfo = useFixedStopLoss ? str.tostring(fixedStopPerc*100, "#.#") + "%" :
                      useATRStopLoss ? str.tostring(atrStopMultiplier, "#.#") + "ATR" : "N/A"
-            tpInfo = useTakeProfit ? str.tostring(takeProfitPerc*100, "#.#") + "%" : "-"
+            tpInfo = useTakeProfit ? str.tostring(tp1Perc*100, "#") + "/" + str.tostring(tp2Perc*100, "#") + "/" + str.tostring(tp3Perc*100, "#") + "%" : "-"
             trailingInfo = enableTrailing ? "@" + str.tostring(trailingActivationPerc*100, "#.#") + "%" : "-"
 
             labelText := "LONG ENTRY\n" +
