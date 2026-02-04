@@ -2,7 +2,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 // @title        TEMA-ST-WT LONG OPTIMIZED ADVANCED
 // @description  Versione ottimizzata con filtri avanzati e grafica ULTRA LEGGIBILE
-// @version      6.2
+// @version      6.3
 // @author       Trading-Long Strategy
 // ══════════════════════════════════════════════════════════════════════════════
 //
@@ -38,7 +38,7 @@ tf = input.string("120", "Timeframe", options = ["120","240"])
 [close_tf, high_tf, low_tf, hl2_tf, hlc3_tf, vol_tf] = request.security(syminfo.tickerid, tf, [close, high, low, hl2, hlc3, volume])
 
 // — STRATEGY SETTINGS —
-strategy("TEMA-ST-WT LONG v6.2 ADV", overlay=true,
+strategy("TEMA-ST-WT LONG v6.3 ADV", overlay=true,
      initial_capital    = 100000,
      default_qty_type   = strategy.percent_of_equity,
      default_qty_value  = 100,
@@ -102,21 +102,33 @@ highVolMultiplier = input.float(1.5, "High Volatility Threshold", minval=1.2, ma
 // Slippage
 slippagePerc = input.float(0.05, "Slippage Assumption %", minval=0.01, maxval=0.5, step=0.01, group="Risk Management") / 100
 
-// Stop Loss Type
+// Stop Loss Type - PIÙ STRETTO
 useFixedStopLoss = input.bool(true, "Usa Stop Loss Fisso", group="Risk Management")
-fixedStopPerc = input.float(2.5, "Stop Loss %", minval=0.5, maxval=10.0, step=0.1, group="Risk Management") / 100
+fixedStopPerc = input.float(1.5, "Stop Loss %", minval=0.5, maxval=5.0, step=0.1, group="Risk Management") / 100
 
 useATRStopLoss = input.bool(false, "Usa Stop Loss Basato su ATR", group="Risk Management")
-atrStopMultiplier = input.float(2.0, "ATR Stop Multiplier", minval=1.0, maxval=5.0, step=0.1, group="Risk Management")
+atrStopMultiplier = input.float(1.5, "ATR Stop Multiplier", minval=1.0, maxval=3.0, step=0.1, group="Risk Management")
 
 // Trailing Stop
 enableTrailing = input.bool(true, "🔥 Abilita Trailing Stop", group="Risk Management")
-trailingActivationPerc = input.float(3.5, "Trailing Activation %", minval=1.0, maxval=10.0, step=0.5, group="Risk Management", tooltip="Quando il profit raggiunge questa %, attiva trailing") / 100
-trailingOffsetPerc = input.float(0.0, "Trailing Offset %", minval=0.0, maxval=3.0, step=0.1, group="Risk Management", tooltip="0% = Break-Even, >0% = protegge parte del profitto") / 100
+trailingActivationPerc = input.float(2.5, "Trailing Activation %", minval=1.0, maxval=10.0, step=0.5, group="Risk Management", tooltip="Quando il profit raggiunge questa %, attiva trailing") / 100
+trailingOffsetPerc = input.float(0.5, "Trailing Offset %", minval=0.0, maxval=3.0, step=0.1, group="Risk Management", tooltip="0% = Break-Even, >0% = protegge parte del profitto") / 100
 
-// Take Profit
-useTakeProfit = input.bool(true, "Usa Take Profit", group="Risk Management")
-takeProfitPerc = input.float(8.0, "Take Profit %", minval=2.0, maxval=20.0, step=0.5, group="Risk Management") / 100
+// ─────────────────────────────────────────────────────────────────────────────
+// Take Profit a 3 LIVELLI con Alleggerimenti
+// ─────────────────────────────────────────────────────────────────────────────
+useTakeProfit = input.bool(true, "Usa Take Profit Multi-Livello", group="Take Profit 3 Livelli")
+
+// TP1 - Primo alleggerimento
+tp1Perc = input.float(2.5, "TP1 - Primo Target %", minval=1.0, maxval=10.0, step=0.5, group="Take Profit 3 Livelli") / 100
+tp1Qty = input.float(30.0, "TP1 - % Posizione da Chiudere", minval=10.0, maxval=50.0, step=5.0, group="Take Profit 3 Livelli")
+
+// TP2 - Secondo alleggerimento
+tp2Perc = input.float(5.0, "TP2 - Secondo Target %", minval=2.0, maxval=15.0, step=0.5, group="Take Profit 3 Livelli") / 100
+tp2Qty = input.float(30.0, "TP2 - % Posizione da Chiudere", minval=10.0, maxval=50.0, step=5.0, group="Take Profit 3 Livelli")
+
+// TP3 - Chiusura finale
+tp3Perc = input.float(8.0, "TP3 - Target Finale %", minval=3.0, maxval=20.0, step=0.5, group="Take Profit 3 Livelli") / 100
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Opzioni Visualizzazione - CHART READABILITY
@@ -275,9 +287,14 @@ stopLossPrice = useFixedStopLoss ? entryPrice * (1 - fixedStopPerc - slippagePer
                  entryPrice * (1 - fixedStopPerc - slippagePerc)  // default
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Calcolo Take Profit
+// Calcolo Take Profit - 3 LIVELLI
 // ─────────────────────────────────────────────────────────────────────────────
-takeProfitPrice = useTakeProfit ? entryPrice * (1 + takeProfitPerc - slippagePerc) : na
+tp1Price = useTakeProfit ? entryPrice * (1 + tp1Perc) : na  // TP1: +2.5%
+tp2Price = useTakeProfit ? entryPrice * (1 + tp2Perc) : na  // TP2: +5%
+tp3Price = useTakeProfit ? entryPrice * (1 + tp3Perc) : na  // TP3: +8%
+
+// Per compatibilità con vecchio codice
+takeProfitPrice = tp3Price
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Trailing Stop Logic
@@ -305,13 +322,26 @@ shouldExit = exit_count >= 3
 exit_bar   = inLong and shouldExit
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Gestione Uscite
+// Gestione Uscite - TAKE PROFIT A 3 LIVELLI
 // ─────────────────────────────────────────────────────────────────────────────
 if inLong
-    // Exit con SL/TP (e trailing se attivato)
-    strategy.exit("SL/TP", from_entry="Long",
+    // TP1 - Primo alleggerimento (30% della posizione)
+    strategy.exit("TP1", from_entry="Long",
+                   limit=tp1Price,
+                   qty_percent=tp1Qty,
+                   comment="TP1 +" + str.tostring(tp1Perc*100, "#.#") + "%")
+
+    // TP2 - Secondo alleggerimento (30% della posizione rimanente)
+    strategy.exit("TP2", from_entry="Long",
+                   limit=tp2Price,
+                   qty_percent=tp2Qty,
+                   comment="TP2 +" + str.tostring(tp2Perc*100, "#.#") + "%")
+
+    // TP3 + SL - Chiusura finale con stop loss
+    strategy.exit("TP3/SL", from_entry="Long",
                    stop=finalStopPrice,
-                   limit=takeProfitPrice)
+                   limit=tp3Price,
+                   comment="TP3/SL")
 
     // Exit per segnali strategia
     if exit_bar
@@ -351,46 +381,70 @@ bgcolor(showBgEffective and inLong ? color.new(#00FF41, 95) : na, title="Positio
 bgcolor(showBgEffective and not trendStrong ? color.new(color.orange, 97) : na, title="Choppy Market Warning")
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SL/TP Levels - Linee orizzontali MOLTO EVIDENTI
+// SL/TP Levels - 3 LIVELLI DI TAKE PROFIT + STOP LOSS
 // ─────────────────────────────────────────────────────────────────────────────
 showLevelsEffective = showLevels and not cleanViewMode
 
-// Plot linee SL/TP/Entry
-slPlot = plot(showLevelsEffective and inLong ? stopPrice : na, "Stop Loss", color=color.new(#FF0055, 0), linewidth=3, style=plot.style_linebr)
-tpPlot = plot(showLevelsEffective and inLong ? limitPrice : na, "Take Profit", color=color.new(#00FF41, 0), linewidth=3, style=plot.style_linebr)
-entryPlot = plot(showLevelsEffective and inLong ? entryPrice : na, "Entry", color=color.new(#FFFF00, 0), linewidth=2, style=plot.style_linebr)
+// Colori per i 3 livelli di TP
+tp1Color = color.new(#90EE90, 0)   // Verde chiaro
+tp2Color = color.new(#32CD32, 0)   // Verde medio
+tp3Color = color.new(#00FF41, 0)   // Verde intenso
 
-// Fill zone tra entry e SL/TP per evidenziare
-fill(entryPlot, slPlot, color=color.new(#FF0055, 90), title="Risk Zone")
-fill(entryPlot, tpPlot, color=color.new(#00FF41, 90), title="Profit Zone")
+// Plot linee SL/Entry/TP1/TP2/TP3
+slPlot = plot(showLevelsEffective and inLong ? stopPrice : na, "Stop Loss", color=color.new(#FF0055, 0), linewidth=3, style=plot.style_linebr)
+entryPlot = plot(showLevelsEffective and inLong ? entryPrice : na, "Entry", color=color.new(#FFFF00, 0), linewidth=2, style=plot.style_linebr)
+tp1Plot = plot(showLevelsEffective and inLong ? tp1Price : na, "TP1", color=tp1Color, linewidth=2, style=plot.style_linebr)
+tp2Plot = plot(showLevelsEffective and inLong ? tp2Price : na, "TP2", color=tp2Color, linewidth=2, style=plot.style_linebr)
+tp3Plot = plot(showLevelsEffective and inLong ? tp3Price : na, "TP3", color=tp3Color, linewidth=3, style=plot.style_linebr)
+
+// Fill zone
+fill(entryPlot, slPlot, color=color.new(#FF0055, 92), title="Risk Zone")
+fill(entryPlot, tp1Plot, color=color.new(#90EE90, 93), title="TP1 Zone")
+fill(tp1Plot, tp2Plot, color=color.new(#32CD32, 93), title="TP2 Zone")
+fill(tp2Plot, tp3Plot, color=color.new(#00FF41, 93), title="TP3 Zone")
 
 // Labels con prezzo per SL/TP (solo ultima barra per non sovraccaricare)
 if showLevelsEffective and inLong and barstate.islast
     // Stop Loss Label
     slPct = ((stopPrice - entryPrice) / entryPrice) * 100
     label.new(bar_index + 3, stopPrice,
-         text="SL: " + str.tostring(stopPrice, "#.##") + " (" + str.tostring(slPct, "#.#") + "%)",
+         text="SL: " + str.tostring(stopPrice, "#.#") + " (" + str.tostring(slPct, "#.#") + "%)",
          style=label.style_label_left,
          color=color.new(#FF0055, 20),
          textcolor=color.white,
-         size=size.small)
-
-    // Take Profit Label
-    tpPct = ((limitPrice - entryPrice) / entryPrice) * 100
-    label.new(bar_index + 3, limitPrice,
-         text="TP: " + str.tostring(limitPrice, "#.##") + " (+" + str.tostring(tpPct, "#.#") + "%)",
-         style=label.style_label_left,
-         color=color.new(#00FF41, 20),
-         textcolor=color.white,
-         size=size.small)
+         size=size.tiny)
 
     // Entry Label
     label.new(bar_index + 3, entryPrice,
-         text="ENTRY: " + str.tostring(entryPrice, "#.##"),
+         text="ENTRY: " + str.tostring(entryPrice, "#.#"),
          style=label.style_label_left,
          color=color.new(#FFFF00, 20),
          textcolor=color.black,
-         size=size.small)
+         size=size.tiny)
+
+    // TP1 Label
+    label.new(bar_index + 3, tp1Price,
+         text="TP1: " + str.tostring(tp1Price, "#.#") + " (+" + str.tostring(tp1Perc*100, "#.#") + "%) [" + str.tostring(tp1Qty, "#") + "%]",
+         style=label.style_label_left,
+         color=color.new(tp1Color, 20),
+         textcolor=color.white,
+         size=size.tiny)
+
+    // TP2 Label
+    label.new(bar_index + 3, tp2Price,
+         text="TP2: " + str.tostring(tp2Price, "#.#") + " (+" + str.tostring(tp2Perc*100, "#.#") + "%) [" + str.tostring(tp2Qty, "#") + "%]",
+         style=label.style_label_left,
+         color=color.new(tp2Color, 20),
+         textcolor=color.white,
+         size=size.tiny)
+
+    // TP3 Label
+    label.new(bar_index + 3, tp3Price,
+         text="TP3: " + str.tostring(tp3Price, "#.#") + " (+" + str.tostring(tp3Perc*100, "#.#") + "%) [REST]",
+         style=label.style_label_left,
+         color=color.new(tp3Color, 20),
+         textcolor=color.white,
+         size=size.tiny)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Entry/Exit Signals - Dimensione ridotta per leggibilità
