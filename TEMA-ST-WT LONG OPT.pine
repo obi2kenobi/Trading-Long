@@ -573,7 +573,7 @@ if showLabelsEffective
 // DASHBOARD MIGLIORATA
 // ═══════════════════════════════════════════════════════════════════════════════
 
-var table dashboard = table.new(position.top_right, 2, 18, border_width=1)
+var table dashboard = table.new(position.middle_right, 2, 18, border_width=1)
 
 // Dashboard rispetta Clean View Mode
 showDashboardEffective = showDashboard and not cleanViewMode
