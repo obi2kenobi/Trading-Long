@@ -1,10 +1,20 @@
 //@version=6
 // ══════════════════════════════════════════════════════════════════════════════
 // @title        TEMA-ST-WT LONG OPTIMIZED ADVANCED
-// @description  Versione ottimizzata con filtri avanzati e grafica ULTRA LEGGIBILE
-// @version      6.3
+// @description  Versione con bug fix critici, ATR multi-timeframe, e filtri corretti
+// @version      6.4
 // @author       Trading-Long Strategy
 // ══════════════════════════════════════════════════════════════════════════════
+//
+// 🔧 BUG FIX v6.4 - CODE REVIEW & OPTIMIZATION:
+// ───────────────────────────────────────────────────────────────────────────
+// ✓ 🐛 FIX Filter Scoring - Filtri disabilitati non gonfiano più il punteggio
+// ✓ 🐛 FIX TP1/TP2 Stop Loss - Tutte le porzioni della posizione ora protette
+// ✓ 🐛 FIX ATR Timeframe - ATR calcolato sul timeframe strategy, non chart
+// ✓ 🐛 FIX Gap Detection - Usa dati multi-timeframe corretti (open_tf)
+// ✓ 🧹 Rimosso codice morto (entryPriceWithSlippage, entrySlippage)
+// ✓ ⚡ TEMA ottimizzato - EMA intermedie cachate (no ricalcolo ridondante)
+// ✓ ⚙️ Soglia bassa volatilità ora configurabile (lowVolThreshold)
 //
 // 🚀 MIGLIORAMENTI v6.2 - GRAFICA ULTRA LEGGIBILE:
 // ───────────────────────────────────────────────────────────────────────────
@@ -34,11 +44,11 @@
 // — INPUT TIMEFRAME —
 tf = input.string("120", "Timeframe", options = ["120","240"])
 
-// — DATI MULTITF —
-[close_tf, high_tf, low_tf, hl2_tf, hlc3_tf, vol_tf] = request.security(syminfo.tickerid, tf, [close, high, low, hl2, hlc3, volume])
+// — DATI MULTITF (inclusi ATR per coerenza timeframe) —
+[close_tf, high_tf, low_tf, open_tf, hl2_tf, hlc3_tf, vol_tf, atr10_tf, atr14_tf] = request.security(syminfo.tickerid, tf, [close, high, low, open, hl2, hlc3, volume, ta.atr(10), ta.atr(14)])
 
 // — STRATEGY SETTINGS —
-strategy("TEMA-ST-WT LONG v6.3 ADV", overlay=true,
+strategy("TEMA-ST-WT LONG v6.4 ADV", overlay=true,
      initial_capital    = 100000,
      default_qty_type   = strategy.percent_of_equity,
      default_qty_value  = 100,
@@ -95,6 +105,7 @@ gapThreshold = input.float(0.8, "Gap Threshold %", minval=0.2, maxval=2.0, step=
 // Volatility Regime
 atrMaLen     = input.int(50, "ATR MA Period", minval=20, maxval=100, group="Volatility")
 highVolMultiplier = input.float(1.5, "High Volatility Threshold", minval=1.2, maxval=2.5, step=0.1, group="Volatility")
+lowVolThreshold = input.float(0.7, "Low Volatility Threshold", minval=0.3, maxval=1.0, step=0.1, group="Volatility")
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Risk Management - Stop Loss & Trailing
@@ -147,12 +158,20 @@ labelSize    = input.string("small", "Dimensione labels", options=["tiny", "smal
 // INDICATORS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// TEMA IN / OUT
-tema_in  = 3*ta.ema(close_tf, temaLen_in) - 3*ta.ema(ta.ema(close_tf, temaLen_in), temaLen_in) + ta.ema(ta.ema(ta.ema(close_tf, temaLen_in), temaLen_in), temaLen_in)
-tema_out = 3*ta.ema(close_tf, temaLen_out) - 3*ta.ema(ta.ema(close_tf, temaLen_out), temaLen_out) + ta.ema(ta.ema(ta.ema(close_tf, temaLen_out), temaLen_out), temaLen_out)
+// TEMA IN (EMA intermedie cachate per efficienza)
+ema1_in  = ta.ema(close_tf, temaLen_in)
+ema2_in  = ta.ema(ema1_in, temaLen_in)
+ema3_in  = ta.ema(ema2_in, temaLen_in)
+tema_in  = 3 * ema1_in - 3 * ema2_in + ema3_in
 
-// Supertrend IN
-atr_in = ta.atr(stPeriod_in)
+// TEMA OUT
+ema1_out = ta.ema(close_tf, temaLen_out)
+ema2_out = ta.ema(ema1_out, temaLen_out)
+ema3_out = ta.ema(ema2_out, temaLen_out)
+tema_out = 3 * ema1_out - 3 * ema2_out + ema3_out
+
+// Supertrend IN (ATR dal timeframe corretto)
+atr_in = atr10_tf
 upC_in = hl2_tf - stFactor_in * atr_in
 dnC_in = hl2_tf + stFactor_in * atr_in
 var float _up_in = na
@@ -162,8 +181,8 @@ _up_in := close_tf[1] > nz(_up_in[1], upC_in) ? math.max(upC_in, nz(_up_in[1], u
 _dn_in := close_tf[1] < nz(_dn_in[1], dnC_in) ? math.min(dnC_in, nz(_dn_in[1], dnC_in)) : dnC_in
 trend_in := close_tf > _dn_in[1] ? 1 : close_tf < _up_in[1] ? -1 : nz(trend_in[1])
 
-// Supertrend OUT
-atr_out = ta.atr(stPeriod_out)
+// Supertrend OUT (ATR dal timeframe corretto)
+atr_out = atr10_tf
 upC_out = hl2_tf - stFactor_out * atr_out
 dnC_out = hl2_tf + stFactor_out * atr_out
 var float _up_out = na
@@ -209,17 +228,17 @@ volumeOK = vol_tf > volMA * volMultiplier
 [diPlus, diMinus, adx] = ta.dmi(adxLen, adxLen)
 trendStrong = adx > adxThreshold
 
-// Volatility Regime
-atrCurrent = ta.atr(14)
+// Volatility Regime (ATR dal timeframe corretto)
+atrCurrent = atr14_tf
 atrMA = ta.sma(atrCurrent, atrMaLen)
 volRegime = atrCurrent / atrMA
 isHighVol = volRegime > highVolMultiplier
-isNormalVol = volRegime <= highVolMultiplier and volRegime >= 0.7
-isLowVol = volRegime < 0.7
+isNormalVol = volRegime <= highVolMultiplier and volRegime >= lowVolThreshold
+isLowVol = volRegime < lowVolThreshold
 
-// Gap Detection
-gap = math.abs(open - close[1])
-gapSize = gap / close[1]
+// Gap Detection (dati multi-timeframe per coerenza)
+gap = math.abs(open_tf - close_tf[1])
+gapSize = gap / close_tf[1]
 hasGap = gapSize > gapThreshold
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -227,7 +246,7 @@ hasGap = gapSize > gapThreshold
 // ═══════════════════════════════════════════════════════════════════════════════
 
 tema_slope = tema_in - tema_in[1]
-tema_slope_ratio = math.abs(tema_slope) / ta.atr(10)
+tema_slope_ratio = math.abs(tema_slope) / atr10_tf
 isFlatSlope = tema_slope_ratio < 0.008
 
 rangeHigh5 = ta.highest(high_tf, 5)
@@ -242,26 +261,26 @@ isLateral  = isFlatSlope or rangeCond
 // Condizioni base (originali) - SEMPRE RICHIESTE
 baseConditions = (trend_in == 1) and wtUp and (distATR <= maxDistATR) and not isLateral
 
-// Sistema di Scoring dei Filtri Avanzati
-rsiFilterPass    = enableRSI ? (rsiOK ? 1 : 0) : 1
-volumeFilterPass = enableVolume ? (volumeOK ? 1 : 0) : 1
-adxFilterPass    = enableADX ? (trendStrong ? 1 : 0) : 1
-gapFilterPass    = enableGapFilter ? (not hasGap ? 1 : 0) : 1
+// Sistema di Scoring dei Filtri Avanzati (solo filtri abilitati contano)
+rsiFilterPass    = enableRSI ? (rsiOK ? 1 : 0) : 0
+volumeFilterPass = enableVolume ? (volumeOK ? 1 : 0) : 0
+adxFilterPass    = enableADX ? (trendStrong ? 1 : 0) : 0
+gapFilterPass    = enableGapFilter ? (not hasGap ? 1 : 0) : 0
 
 // Calcolo filtri attivi e passati
 activeFiltersCount = (enableRSI ? 1 : 0) + (enableVolume ? 1 : 0) + (enableADX ? 1 : 0) + (enableGapFilter ? 1 : 0)
 passedFiltersCount = rsiFilterPass + volumeFilterPass + adxFilterPass + gapFilterPass
 
-// Logica intelligente: se filtri disabilitati, bypassa il check
-filtersOK = not useAdvancedFilters or (activeFiltersCount == 0) or (passedFiltersCount >= minFiltersRequired)
+// Logica intelligente: minimo richiesto limitato ai filtri attivi
+effectiveMinRequired = math.min(minFiltersRequired, activeFiltersCount)
+filtersOK = not useAdvancedFilters or (activeFiltersCount == 0) or (passedFiltersCount >= effectiveMinRequired)
 
 // Condizione entry finale
 longOK = baseConditions and filtersOK
 inLong = strategy.position_size > 0
 
-// Entry con slippage consideration
+// Entry
 if not inLong and longOK
-    entryPriceWithSlippage = close_tf * (1 + slippagePerc)
     strategy.entry("Long", strategy.long, comment="LONG")
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -270,13 +289,11 @@ if not inLong and longOK
 
 var float entryPrice = na
 var int entryBar = na
-var float entrySlippage = na
 var bool trailingActivated = false
 
 if inLong and not inLong[1]
     entryPrice := strategy.position_avg_price
     entryBar := bar_index
-    entrySlippage := entryPrice * slippagePerc
     trailingActivated := false
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -325,14 +342,16 @@ exit_bar   = inLong and shouldExit
 // Gestione Uscite - TAKE PROFIT A 3 LIVELLI
 // ─────────────────────────────────────────────────────────────────────────────
 if inLong
-    // TP1 - Primo alleggerimento (30% della posizione)
+    // TP1 - Primo alleggerimento (30% della posizione) + SL protezione
     strategy.exit("TP1", from_entry="Long",
+                   stop=finalStopPrice,
                    limit=tp1Price,
                    qty_percent=tp1Qty,
                    comment="TP1 +" + str.tostring(tp1Perc*100, "#.#") + "%")
 
-    // TP2 - Secondo alleggerimento (30% della posizione rimanente)
+    // TP2 - Secondo alleggerimento (30% della posizione rimanente) + SL protezione
     strategy.exit("TP2", from_entry="Long",
+                   stop=finalStopPrice,
                    limit=tp2Price,
                    qty_percent=tp2Qty,
                    comment="TP2 +" + str.tostring(tp2Perc*100, "#.#") + "%")
@@ -477,7 +496,7 @@ getLabelSize(_size) =>
 labelDisplaySize = getLabelSize(labelSize)
 
 // Offset per allontanare i label dalle candele (basato su ATR)
-labelOffset = ta.atr(14) * 4.0
+labelOffset = atr14_tf * 4.0
 
 // Clean View Mode disabilita i label
 showLabelsEffective = showLabels and not cleanViewMode
