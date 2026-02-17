@@ -573,108 +573,109 @@ if showLabelsEffective
 // DASHBOARD MIGLIORATA
 // ═══════════════════════════════════════════════════════════════════════════════
 
-var table dashboard = table.new(position.top_left, 2, 18, border_width=1, border_color=color.new(#0066FF, 50), frame_width=2, frame_color=color.new(#0066FF, 0))
-
 // Dashboard rispetta Clean View Mode
 showDashboardEffective = showDashboard and not cleanViewMode
 
 if showDashboardEffective and barstate.islast
+    // Tabella creata e popolata insieme sull'ultimo bar (no var)
+    dashboard = table.new(position.top_left, 2, 18, bgcolor=color.new(color.black, 0), border_width=1, border_color=color.new(#0066FF, 50), frame_width=2, frame_color=color.new(#0066FF, 0))
+
     // ─────────────────────────────────────────────────────────────────────────
     // Header
     // ─────────────────────────────────────────────────────────────────────────
-    table.cell(dashboard, 0, 0, "TEMA-ST-WT LONG", text_color=color.white, bgcolor=color.new(#0066FF, 0), text_size=size.large)
-    table.cell(dashboard, 1, 0, inLong ? "🟢 IN TRADE" : "⚪ WAITING", text_color=color.white, bgcolor=inLong ? color.new(#00FF41, 20) : color.new(color.gray, 30), text_size=size.large)
+    table.cell(dashboard, 0, 0, "TEMA-ST-WT LONG", text_color=color.white, bgcolor=color.new(#0066FF, 0), text_size=size.normal)
+    table.cell(dashboard, 1, 0, inLong ? "IN TRADE" : "WAITING", text_color=color.white, bgcolor=inLong ? color.new(#00FF41, 20) : color.new(color.gray, 30), text_size=size.normal)
 
     // ─────────────────────────────────────────────────────────────────────────
     // Position Info
     // ─────────────────────────────────────────────────────────────────────────
-    if inLong
+    if inLong and not na(entryPrice)
         currentPnL = ((close_tf - entryPrice) / entryPrice) * 100
         bars_in_trade = bar_index - entryBar
 
-        table.cell(dashboard, 0, 1, "Entry Price", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.normal)
-        table.cell(dashboard, 1, 1, str.tostring(entryPrice, "#.##"), text_color=color.white, bgcolor=color.new(#2D2D2D, 0), text_size=size.normal)
+        table.cell(dashboard, 0, 1, "Entry Price", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
+        table.cell(dashboard, 1, 1, str.tostring(entryPrice, "#.##"), text_color=color.white, bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
 
-        table.cell(dashboard, 0, 2, "Current P&L", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.normal)
+        table.cell(dashboard, 0, 2, "Current P&L", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
         pnlColor = currentPnL >= 0 ? color.new(#00FF41, 0) : color.new(#FF0055, 0)
-        table.cell(dashboard, 1, 2, str.tostring(currentPnL, "#.##") + "%", text_color=pnlColor, bgcolor=color.new(#2D2D2D, 0), text_size=size.normal)
+        table.cell(dashboard, 1, 2, str.tostring(currentPnL, "#.##") + "%", text_color=pnlColor, bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
 
-        table.cell(dashboard, 0, 3, "⛔ Stop Loss", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.normal)
-        table.cell(dashboard, 1, 3, str.tostring(stopPrice, "#.##"), text_color=color.new(#FF0055, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.normal)
+        table.cell(dashboard, 0, 3, "Stop Loss", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
+        table.cell(dashboard, 1, 3, str.tostring(stopPrice, "#.##"), text_color=color.new(#FF0055, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
 
-        table.cell(dashboard, 0, 4, "🎯 Take Profit", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.normal)
-        table.cell(dashboard, 1, 4, str.tostring(limitPrice, "#.##"), text_color=color.new(#00FF41, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.normal)
+        table.cell(dashboard, 0, 4, "Take Profit", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
+        table.cell(dashboard, 1, 4, str.tostring(limitPrice, "#.##"), text_color=color.new(#00FF41, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
 
-        table.cell(dashboard, 0, 5, "Bars in Trade", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.normal)
-        table.cell(dashboard, 1, 5, str.tostring(bars_in_trade), text_color=color.white, bgcolor=color.new(#2D2D2D, 0), text_size=size.normal)
+        table.cell(dashboard, 0, 5, "Bars in Trade", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
+        table.cell(dashboard, 1, 5, str.tostring(bars_in_trade), text_color=color.white, bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
 
         // Trailing Stop Status
-        trailingStatus = trailingActivated ? "🔥 ACTIVE" : currentProfitPerc >= trailingActivationPerc * 0.8 ? "⚡ NEAR" : "⚪ OFF"
+        trailingStatus = trailingActivated ? "ACTIVE" : currentProfitPerc >= trailingActivationPerc * 0.8 ? "NEAR" : "OFF"
         trailingStatusColor = trailingActivated ? color.new(#00FF41, 0) : currentProfitPerc >= trailingActivationPerc * 0.8 ? color.new(color.orange, 0) : color.new(color.gray, 0)
-        table.cell(dashboard, 0, 6, "🛡️ Trailing Stop", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.normal)
-        table.cell(dashboard, 1, 6, trailingStatus, text_color=trailingStatusColor, bgcolor=color.new(#2D2D2D, 0), text_size=size.normal)
+        table.cell(dashboard, 0, 6, "Trailing Stop", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
+        table.cell(dashboard, 1, 6, trailingStatus, text_color=trailingStatusColor, bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Entry Filters Status - Sistema Intelligente
+    // Entry Filters Status
     // ─────────────────────────────────────────────────────────────────────────
     if showFilters
         filtersStatus = useAdvancedFilters ? str.tostring(passedFiltersCount) + "/" + str.tostring(minFiltersRequired) + " REQ" : "DISABLED"
         filtersStatusColor = not useAdvancedFilters ? color.new(color.gray, 30) : passedFiltersCount >= minFiltersRequired ? color.new(#00FF41, 30) : color.new(#FF0055, 30)
 
-        table.cell(dashboard, 0, 7, "🔍 FILTERS SCORE", text_color=color.white, bgcolor=color.new(#FF6B00, 20), text_size=size.normal)
-        table.cell(dashboard, 1, 7, filtersStatus, text_color=color.white, bgcolor=filtersStatusColor, text_size=size.normal)
+        table.cell(dashboard, 0, 7, "FILTERS SCORE", text_color=color.white, bgcolor=color.new(#FF6B00, 20), text_size=size.small)
+        table.cell(dashboard, 1, 7, filtersStatus, text_color=color.white, bgcolor=filtersStatusColor, text_size=size.small)
 
         // RSI Filter
-        rsiLabel = enableRSI ? "  RSI < " + str.tostring(rsiOverbought) : "  RSI (OFF)"
-        rsiValue = enableRSI ? (rsiOK ? "✓ " + str.tostring(rsi, "#.#") : "✗ " + str.tostring(rsi, "#.#")) : "-"
+        rsiLabel = enableRSI ? "RSI < " + str.tostring(rsiOverbought) : "RSI (OFF)"
+        rsiValue = enableRSI ? (rsiOK ? "V " + str.tostring(rsi, "#.#") : "X " + str.tostring(rsi, "#.#")) : "-"
         rsiColor = enableRSI ? (rsiOK ? color.new(#00FF41, 0) : color.new(#FF0055, 0)) : color.new(color.gray, 0)
-        table.cell(dashboard, 0, 8, rsiLabel, text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
-        table.cell(dashboard, 1, 8, rsiValue, text_color=rsiColor, bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+        table.cell(dashboard, 0, 8, rsiLabel, text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.tiny)
+        table.cell(dashboard, 1, 8, rsiValue, text_color=rsiColor, bgcolor=color.new(#2D2D2D, 0), text_size=size.tiny)
 
         // Volume Filter
-        volLabel = enableVolume ? "  Vol > MA*" + str.tostring(volMultiplier, "#.#") : "  Volume (OFF)"
-        volValue = enableVolume ? (volumeOK ? "✓" : "✗") : "-"
+        volLabel = enableVolume ? "Vol > MA*" + str.tostring(volMultiplier, "#.#") : "Volume (OFF)"
+        volValue = enableVolume ? (volumeOK ? "V" : "X") : "-"
         volColor = enableVolume ? (volumeOK ? color.new(#00FF41, 0) : color.new(#FF0055, 0)) : color.new(color.gray, 0)
-        table.cell(dashboard, 0, 9, volLabel, text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
-        table.cell(dashboard, 1, 9, volValue, text_color=volColor, bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+        table.cell(dashboard, 0, 9, volLabel, text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.tiny)
+        table.cell(dashboard, 1, 9, volValue, text_color=volColor, bgcolor=color.new(#2D2D2D, 0), text_size=size.tiny)
 
         // ADX Filter
-        adxLabel = enableADX ? "  ADX > " + str.tostring(adxThreshold, "#") : "  ADX (OFF)"
-        adxValue = enableADX ? (trendStrong ? "✓ " + str.tostring(adx, "#.#") : "✗ " + str.tostring(adx, "#.#")) : "-"
+        adxLabel = enableADX ? "ADX > " + str.tostring(adxThreshold, "#") : "ADX (OFF)"
+        adxValue = enableADX ? (trendStrong ? "V " + str.tostring(adx, "#.#") : "X " + str.tostring(adx, "#.#")) : "-"
         adxColor = enableADX ? (trendStrong ? color.new(#00FF41, 0) : color.new(#FF0055, 0)) : color.new(color.gray, 0)
-        table.cell(dashboard, 0, 10, adxLabel, text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
-        table.cell(dashboard, 1, 10, adxValue, text_color=adxColor, bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+        table.cell(dashboard, 0, 10, adxLabel, text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.tiny)
+        table.cell(dashboard, 1, 10, adxValue, text_color=adxColor, bgcolor=color.new(#2D2D2D, 0), text_size=size.tiny)
 
         // Gap Filter
-        gapLabel = enableGapFilter ? "  No Gap >" + str.tostring(gapThreshold*100, "#.#") + "%" : "  Gap (OFF)"
-        gapValue = enableGapFilter ? (not hasGap ? "✓" : "✗") : "-"
+        gapLabel = enableGapFilter ? "No Gap >" + str.tostring(gapThreshold*100, "#.#") + "%" : "Gap (OFF)"
+        gapValue = enableGapFilter ? (not hasGap ? "V" : "X") : "-"
         gapColor = enableGapFilter ? (not hasGap ? color.new(#00FF41, 0) : color.new(#FF0055, 0)) : color.new(color.gray, 0)
-        table.cell(dashboard, 0, 11, gapLabel, text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
-        table.cell(dashboard, 1, 11, gapValue, text_color=gapColor, bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+        table.cell(dashboard, 0, 11, gapLabel, text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.tiny)
+        table.cell(dashboard, 1, 11, gapValue, text_color=gapColor, bgcolor=color.new(#2D2D2D, 0), text_size=size.tiny)
 
         // Volatility Regime
-        volRegimeText = isHighVol ? "HIGH ⚠️" : isLowVol ? "LOW" : "NORMAL"
+        volRegimeText = isHighVol ? "HIGH" : isLowVol ? "LOW" : "NORMAL"
         volRegimeColor = isHighVol ? color.new(#FF0055, 0) : isLowVol ? color.new(#FFD700, 0) : color.new(#00FF41, 0)
-        table.cell(dashboard, 0, 12, "  Volatility", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
-        table.cell(dashboard, 1, 12, volRegimeText, text_color=volRegimeColor, bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+        table.cell(dashboard, 0, 12, "Volatility", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.tiny)
+        table.cell(dashboard, 1, 12, volRegimeText, text_color=volRegimeColor, bgcolor=color.new(#2D2D2D, 0), text_size=size.tiny)
 
     // ─────────────────────────────────────────────────────────────────────────
     // Exit Conditions
     // ─────────────────────────────────────────────────────────────────────────
-    table.cell(dashboard, 0, 13, "🚪 EXIT CONDITIONS", text_color=color.white, bgcolor=color.new(#FF6B00, 20), text_size=size.normal)
-    table.cell(dashboard, 1, 13, str.tostring(exit_count) + " / 3", text_color=color.white, bgcolor=exit_count >= 3 ? color.new(#FF0055, 30) : color.new(#2D2D2D, 0), text_size=size.normal)
+    table.cell(dashboard, 0, 13, "EXIT CONDITIONS", text_color=color.white, bgcolor=color.new(#FF6B00, 20), text_size=size.small)
+    table.cell(dashboard, 1, 13, str.tostring(exit_count) + " / 3", text_color=color.white, bgcolor=exit_count >= 3 ? color.new(#FF0055, 30) : color.new(#2D2D2D, 0), text_size=size.small)
 
-    table.cell(dashboard, 0, 14, "  Wave Trend", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
-    table.cell(dashboard, 1, 14, exit_wt ? "✗" : "✓", text_color=exit_wt ? color.new(#FF0055, 0) : color.new(#00FF41, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+    table.cell(dashboard, 0, 14, "Wave Trend", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.tiny)
+    table.cell(dashboard, 1, 14, exit_wt ? "X" : "V", text_color=exit_wt ? color.new(#FF0055, 0) : color.new(#00FF41, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.tiny)
 
-    table.cell(dashboard, 0, 15, "  Supertrend", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
-    table.cell(dashboard, 1, 15, exit_st ? "✗" : "✓", text_color=exit_st ? color.new(#FF0055, 0) : color.new(#00FF41, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+    table.cell(dashboard, 0, 15, "Supertrend", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.tiny)
+    table.cell(dashboard, 1, 15, exit_st ? "X" : "V", text_color=exit_st ? color.new(#FF0055, 0) : color.new(#00FF41, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.tiny)
 
-    table.cell(dashboard, 0, 16, "  TEMA", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
-    table.cell(dashboard, 1, 16, exit_tema ? "✗" : "✓", text_color=exit_tema ? color.new(#FF0055, 0) : color.new(#00FF41, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+    table.cell(dashboard, 0, 16, "TEMA", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.tiny)
+    table.cell(dashboard, 1, 16, exit_tema ? "X" : "V", text_color=exit_tema ? color.new(#FF0055, 0) : color.new(#00FF41, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.tiny)
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Footer - Session Info
+    // Footer
     // ─────────────────────────────────────────────────────────────────────────
     table.cell(dashboard, 0, 17, "Timeframe", text_color=color.white, bgcolor=color.new(#0066FF, 30), text_size=size.tiny)
     table.cell(dashboard, 1, 17, tf + " min", text_color=color.white, bgcolor=color.new(#0066FF, 30), text_size=size.tiny)
