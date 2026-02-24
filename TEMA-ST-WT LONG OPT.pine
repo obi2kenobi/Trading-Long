@@ -82,6 +82,7 @@ wtN2_out     = 21
 // ─────────────────────────────────────────────────────────────────────────────
 useAdvancedFilters = input.bool(true, "🔧 Abilita Filtri Avanzati", group="Advanced Filters")
 minFiltersRequired = input.int(2, "Filtri Minimi Richiesti (su 4)", minval=0, maxval=4, group="Advanced Filters", tooltip="0=Nessun filtro, 2=Bilanciato, 4=Molto restrittivo")
+enableHTFBearBlock = input.bool(true, "Blocca Long in HTF Bear", group="Advanced Filters", tooltip="Blocca segnali LONG quando il Supertrend Daily è bearish (trend == -1)")
 
 // RSI Settings
 enableRSI    = input.bool(true, "Abilita Filtro RSI", group="RSI Filter")
@@ -210,6 +211,18 @@ wt1_out = ta.ema(ci_out, wtN2_out)
 wt2_out = ta.sma(wt1_out, 4)
 wtDown  = ta.crossunder(wt1_out, wt2_out)
 
+// Supertrend HTF (Daily) - Per filtro HTF Bear Block
+[close_D, hl2_D, atr10_D] = request.security(syminfo.tickerid, "D", [close, hl2, ta.atr(stPeriod_in)])
+upC_htf = hl2_D - stFactor_in * atr10_D
+dnC_htf = hl2_D + stFactor_in * atr10_D
+var float _up_htf = na
+var float _dn_htf = na
+var int trend_htf = 0
+_up_htf := close_D[1] > nz(_up_htf[1], upC_htf) ? math.max(upC_htf, nz(_up_htf[1], upC_htf)) : upC_htf
+_dn_htf := close_D[1] < nz(_dn_htf[1], dnC_htf) ? math.min(dnC_htf, nz(_dn_htf[1], dnC_htf)) : dnC_htf
+trend_htf := close_D > _dn_htf[1] ? 1 : close_D < _up_htf[1] ? -1 : nz(trend_htf[1])
+htfBearish = trend_htf == -1
+
 distATR = (close_tf - tema_in) / atr_in
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -258,8 +271,11 @@ isLateral  = isFlatSlope or rangeCond
 // CONDIZIONI ENTRY COMPLETE - Sistema Intelligente
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// Filtro HTF Bear: blocca LONG se Supertrend Daily è bearish
+htfBearBlock = enableHTFBearBlock and htfBearish
+
 // Condizioni base (originali) - SEMPRE RICHIESTE
-baseConditions = (trend_in == 1) and wtUp and (distATR <= maxDistATR) and not isLateral
+baseConditions = (trend_in == 1) and wtUp and (distATR <= maxDistATR) and not isLateral and not htfBearBlock
 
 // Sistema di Scoring dei Filtri Avanzati (solo filtri abilitati contano)
 rsiFilterPass    = enableRSI ? (rsiOK ? 1 : 0) : 0
@@ -573,7 +589,7 @@ if showLabelsEffective
 // DASHBOARD MIGLIORATA
 // ═══════════════════════════════════════════════════════════════════════════════
 
-var table dashboard = table.new(position.top_left, 2, 18, border_width=1, border_color=color.new(#0066FF, 50), frame_width=2, frame_color=color.new(#0066FF, 0))
+var table dashboard = table.new(position.top_left, 2, 19, border_width=1, border_color=color.new(#0066FF, 50), frame_width=2, frame_color=color.new(#0066FF, 0))
 
 // Dashboard rispetta Clean View Mode
 showDashboardEffective = showDashboard and not cleanViewMode
@@ -658,26 +674,33 @@ if showDashboardEffective and barstate.islast
         table.cell(dashboard, 0, 12, "  Volatility", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
         table.cell(dashboard, 1, 12, volRegimeText, text_color=volRegimeColor, bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
 
+        // HTF Bear Block Filter
+        htfLabel = enableHTFBearBlock ? "  HTF Bear Block (D)" : "  HTF Bear (OFF)"
+        htfValue = enableHTFBearBlock ? (htfBearish ? "✗ BEAR" : "✓ BULL") : "-"
+        htfColor = enableHTFBearBlock ? (htfBearish ? color.new(#FF0055, 0) : color.new(#00FF41, 0)) : color.new(color.gray, 0)
+        table.cell(dashboard, 0, 13, htfLabel, text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
+        table.cell(dashboard, 1, 13, htfValue, text_color=htfColor, bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+
     // ─────────────────────────────────────────────────────────────────────────
     // Exit Conditions
     // ─────────────────────────────────────────────────────────────────────────
-    table.cell(dashboard, 0, 13, "🚪 EXIT CONDITIONS", text_color=color.white, bgcolor=color.new(#FF6B00, 20), text_size=size.normal)
-    table.cell(dashboard, 1, 13, str.tostring(exit_count) + " / 3", text_color=color.white, bgcolor=exit_count >= 3 ? color.new(#FF0055, 30) : color.new(#2D2D2D, 0), text_size=size.normal)
+    table.cell(dashboard, 0, 14, "🚪 EXIT CONDITIONS", text_color=color.white, bgcolor=color.new(#FF6B00, 20), text_size=size.normal)
+    table.cell(dashboard, 1, 14, str.tostring(exit_count) + " / 3", text_color=color.white, bgcolor=exit_count >= 3 ? color.new(#FF0055, 30) : color.new(#2D2D2D, 0), text_size=size.normal)
 
-    table.cell(dashboard, 0, 14, "  Wave Trend", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
-    table.cell(dashboard, 1, 14, exit_wt ? "✗" : "✓", text_color=exit_wt ? color.new(#FF0055, 0) : color.new(#00FF41, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+    table.cell(dashboard, 0, 15, "  Wave Trend", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
+    table.cell(dashboard, 1, 15, exit_wt ? "✗" : "✓", text_color=exit_wt ? color.new(#FF0055, 0) : color.new(#00FF41, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
 
-    table.cell(dashboard, 0, 15, "  Supertrend", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
-    table.cell(dashboard, 1, 15, exit_st ? "✗" : "✓", text_color=exit_st ? color.new(#FF0055, 0) : color.new(#00FF41, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+    table.cell(dashboard, 0, 16, "  Supertrend", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
+    table.cell(dashboard, 1, 16, exit_st ? "✗" : "✓", text_color=exit_st ? color.new(#FF0055, 0) : color.new(#00FF41, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
 
-    table.cell(dashboard, 0, 16, "  TEMA", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
-    table.cell(dashboard, 1, 16, exit_tema ? "✗" : "✓", text_color=exit_tema ? color.new(#FF0055, 0) : color.new(#00FF41, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+    table.cell(dashboard, 0, 17, "  TEMA", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
+    table.cell(dashboard, 1, 17, exit_tema ? "✗" : "✓", text_color=exit_tema ? color.new(#FF0055, 0) : color.new(#00FF41, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
 
     // ─────────────────────────────────────────────────────────────────────────
     // Footer - Session Info
     // ─────────────────────────────────────────────────────────────────────────
-    table.cell(dashboard, 0, 17, "Timeframe", text_color=color.white, bgcolor=color.new(#0066FF, 30), text_size=size.tiny)
-    table.cell(dashboard, 1, 17, tf + " min", text_color=color.white, bgcolor=color.new(#0066FF, 30), text_size=size.tiny)
+    table.cell(dashboard, 0, 18, "Timeframe", text_color=color.white, bgcolor=color.new(#0066FF, 30), text_size=size.tiny)
+    table.cell(dashboard, 1, 18, tf + " min", text_color=color.white, bgcolor=color.new(#0066FF, 30), text_size=size.tiny)
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ALERTS - Enhanced with filter info
