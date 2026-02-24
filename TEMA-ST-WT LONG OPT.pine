@@ -81,8 +81,8 @@ wtN2_out     = 21
 // Sistema Filtri Intelligente
 // ─────────────────────────────────────────────────────────────────────────────
 useAdvancedFilters = input.bool(true, "🔧 Abilita Filtri Avanzati", group="Advanced Filters")
-minFiltersRequired = input.int(2, "Filtri Minimi Richiesti (su 4)", minval=0, maxval=4, group="Advanced Filters", tooltip="0=Nessun filtro, 2=Bilanciato, 4=Molto restrittivo")
-enableHTFBearBlock = input.bool(true, "Blocca Long in HTF Bear", group="Advanced Filters", tooltip="Blocca segnali LONG quando il Supertrend Daily è bearish (trend == -1)")
+minFiltersRequired = input.int(2, "Filtri Minimi Richiesti (su 5)", minval=0, maxval=5, group="Advanced Filters", tooltip="0=Nessun filtro, 2=Bilanciato, 5=Molto restrittivo")
+enableHTFBearBlock = input.bool(true, "Filtro HTF Bear (Daily ST)", group="Advanced Filters", tooltip="Penalizza segnali LONG quando il Supertrend Daily è bearish (conta come filtro nello scoring)")
 
 // RSI Settings
 enableRSI    = input.bool(true, "Abilita Filtro RSI", group="RSI Filter")
@@ -271,21 +271,19 @@ isLateral  = isFlatSlope or rangeCond
 // CONDIZIONI ENTRY COMPLETE - Sistema Intelligente
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Filtro HTF Bear: blocca LONG se Supertrend Daily è bearish
-htfBearBlock = enableHTFBearBlock and htfBearish
-
 // Condizioni base (originali) - SEMPRE RICHIESTE
-baseConditions = (trend_in == 1) and wtUp and (distATR <= maxDistATR) and not isLateral and not htfBearBlock
+baseConditions = (trend_in == 1) and wtUp and (distATR <= maxDistATR) and not isLateral
 
 // Sistema di Scoring dei Filtri Avanzati (solo filtri abilitati contano)
 rsiFilterPass    = enableRSI ? (rsiOK ? 1 : 0) : 0
 volumeFilterPass = enableVolume ? (volumeOK ? 1 : 0) : 0
 adxFilterPass    = enableADX ? (trendStrong ? 1 : 0) : 0
 gapFilterPass    = enableGapFilter ? (not hasGap ? 1 : 0) : 0
+htfFilterPass    = enableHTFBearBlock ? (not htfBearish ? 1 : 0) : 0
 
 // Calcolo filtri attivi e passati
-activeFiltersCount = (enableRSI ? 1 : 0) + (enableVolume ? 1 : 0) + (enableADX ? 1 : 0) + (enableGapFilter ? 1 : 0)
-passedFiltersCount = rsiFilterPass + volumeFilterPass + adxFilterPass + gapFilterPass
+activeFiltersCount = (enableRSI ? 1 : 0) + (enableVolume ? 1 : 0) + (enableADX ? 1 : 0) + (enableGapFilter ? 1 : 0) + (enableHTFBearBlock ? 1 : 0)
+passedFiltersCount = rsiFilterPass + volumeFilterPass + adxFilterPass + gapFilterPass + htfFilterPass
 
 // Logica intelligente: minimo richiesto limitato ai filtri attivi
 effectiveMinRequired = math.min(minFiltersRequired, activeFiltersCount)
