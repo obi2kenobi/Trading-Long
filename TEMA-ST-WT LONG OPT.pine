@@ -84,6 +84,9 @@ useAdvancedFilters = input.bool(true, "🔧 Abilita Filtri Avanzati", group="Adv
 minFiltersRequired = input.int(2, "Filtri Minimi Richiesti (su 4)", minval=0, maxval=4, group="Advanced Filters", tooltip="0=Nessun filtro, 2=Bilanciato, 4=Molto restrittivo")
 enableHTFBearBlock = input.bool(true, "Blocca Long in HTF Bear", group="Advanced Filters", tooltip="Blocca LONG quando Daily close < EMA Daily (hard block, più reattivo del Supertrend)")
 htfEmaLen = input.int(21, "HTF EMA Period", minval=10, maxval=50, group="Advanced Filters", tooltip="Periodo EMA sul Daily per determinare regime bull/bear")
+enableHighVolBlock = input.bool(true, "Blocca Long in Alta Volatilità", group="Advanced Filters", tooltip="Blocca LONG quando ATR > soglia (crash/panic mode). Usa soglia dal gruppo Volatility.")
+lateralLookback = input.int(10, "Lateralità Lookback Barre", minval=3, maxval=20, group="Advanced Filters", tooltip="Numero di barre per calcolare il range. Più alto = rileva lateralità più ampia.")
+lateralThreshold = input.float(1.5, "Lateralità Range Max %", minval=0.5, maxval=3.0, step=0.1, group="Advanced Filters", tooltip="Se il range delle ultime N barre è inferiore a questa %, il mercato è laterale.") / 100
 
 // RSI Settings
 enableRSI    = input.bool(true, "Abilita Filtro RSI", group="RSI Filter")
@@ -259,9 +262,9 @@ tema_slope = tema_in - tema_in[1]
 tema_slope_ratio = math.abs(tema_slope) / atr10_tf
 isFlatSlope = tema_slope_ratio < 0.008
 
-rangeHigh5 = ta.highest(high_tf, 5)
-rangeLow5  = ta.lowest(low_tf, 5)
-rangeCond  = (rangeHigh5 - rangeLow5) / close_tf < 0.01
+rangeHighN = ta.highest(high_tf, lateralLookback)
+rangeLowN  = ta.lowest(low_tf, lateralLookback)
+rangeCond  = (rangeHighN - rangeLowN) / close_tf < lateralThreshold
 isLateral  = isFlatSlope or rangeCond
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -271,8 +274,11 @@ isLateral  = isFlatSlope or rangeCond
 // Filtro HTF Bear: blocca LONG se Daily close < EMA Daily
 htfBearBlock = enableHTFBearBlock and htfBearish
 
-// Condizioni base (originali) - SEMPRE RICHIESTE + HTF hard block
-baseConditions = (trend_in == 1) and wtUp and (distATR <= maxDistATR) and not isLateral and not htfBearBlock
+// Filtro Crash Protection: blocca LONG quando volatilità esplode
+highVolBlock = enableHighVolBlock and isHighVol
+
+// Condizioni base (originali) - SEMPRE RICHIESTE + hard blocks
+baseConditions = (trend_in == 1) and wtUp and (distATR <= maxDistATR) and not isLateral and not htfBearBlock and not highVolBlock
 
 // Sistema di Scoring dei Filtri Avanzati (solo filtri abilitati contano)
 rsiFilterPass    = enableRSI ? (rsiOK ? 1 : 0) : 0
@@ -596,7 +602,7 @@ if showLabelsEffective
 // DASHBOARD MIGLIORATA
 // ═══════════════════════════════════════════════════════════════════════════════
 
-var table dashboard = table.new(position.top_left, 2, 20, border_width=1, border_color=color.new(#0066FF, 50), frame_width=2, frame_color=color.new(#0066FF, 0))
+var table dashboard = table.new(position.top_left, 2, 22, border_width=1, border_color=color.new(#0066FF, 50), frame_width=2, frame_color=color.new(#0066FF, 0))
 
 // Dashboard rispetta Clean View Mode
 showDashboardEffective = showDashboard and not cleanViewMode
@@ -696,26 +702,40 @@ if showDashboardEffective and barstate.islast
         table.cell(dashboard, 0, 14, htfLabel, text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
         table.cell(dashboard, 1, 14, htfValue, text_color=htfColor, bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
 
+        // Crash Protection (High Volatility Block)
+        crashLabel = enableHighVolBlock ? "  Crash Protect" : "  Crash (OFF)"
+        crashValue = enableHighVolBlock ? (isHighVol ? "✗ BLOCK" : "✓ OK") : "-"
+        crashColor = enableHighVolBlock ? (isHighVol ? color.new(#FF0055, 0) : color.new(#00FF41, 0)) : color.new(color.gray, 0)
+        table.cell(dashboard, 0, 15, crashLabel, text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
+        table.cell(dashboard, 1, 15, crashValue, text_color=crashColor, bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+
+        // Laterality Detection
+        rangePerc = (rangeHighN - rangeLowN) / close_tf * 100
+        latValue = isLateral ? "✗ " + str.tostring(rangePerc, "#.#") + "%" : "✓ " + str.tostring(rangePerc, "#.#") + "%"
+        latColor = isLateral ? color.new(#FF0055, 0) : color.new(#00FF41, 0)
+        table.cell(dashboard, 0, 16, "  Lateralità", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
+        table.cell(dashboard, 1, 16, latValue, text_color=latColor, bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+
     // ─────────────────────────────────────────────────────────────────────────
     // Exit Conditions
     // ─────────────────────────────────────────────────────────────────────────
-    table.cell(dashboard, 0, 15, "🚪 EXIT CONDITIONS", text_color=color.white, bgcolor=color.new(#FF6B00, 20), text_size=size.normal)
-    table.cell(dashboard, 1, 15, str.tostring(exit_count) + " / 3", text_color=color.white, bgcolor=exit_count >= 3 ? color.new(#FF0055, 30) : color.new(#2D2D2D, 0), text_size=size.normal)
+    table.cell(dashboard, 0, 17, "🚪 EXIT CONDITIONS", text_color=color.white, bgcolor=color.new(#FF6B00, 20), text_size=size.normal)
+    table.cell(dashboard, 1, 17, str.tostring(exit_count) + " / 3", text_color=color.white, bgcolor=exit_count >= 3 ? color.new(#FF0055, 30) : color.new(#2D2D2D, 0), text_size=size.normal)
 
-    table.cell(dashboard, 0, 16, "  Wave Trend", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
-    table.cell(dashboard, 1, 16, exit_wt ? "✗" : "✓", text_color=exit_wt ? color.new(#FF0055, 0) : color.new(#00FF41, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+    table.cell(dashboard, 0, 18, "  Wave Trend", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
+    table.cell(dashboard, 1, 18, exit_wt ? "✗" : "✓", text_color=exit_wt ? color.new(#FF0055, 0) : color.new(#00FF41, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
 
-    table.cell(dashboard, 0, 17, "  Supertrend", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
-    table.cell(dashboard, 1, 17, exit_st ? "✗" : "✓", text_color=exit_st ? color.new(#FF0055, 0) : color.new(#00FF41, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+    table.cell(dashboard, 0, 19, "  Supertrend", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
+    table.cell(dashboard, 1, 19, exit_st ? "✗" : "✓", text_color=exit_st ? color.new(#FF0055, 0) : color.new(#00FF41, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
 
-    table.cell(dashboard, 0, 18, "  TEMA", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
-    table.cell(dashboard, 1, 18, exit_tema ? "✗" : "✓", text_color=exit_tema ? color.new(#FF0055, 0) : color.new(#00FF41, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
+    table.cell(dashboard, 0, 20, "  TEMA", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
+    table.cell(dashboard, 1, 20, exit_tema ? "✗" : "✓", text_color=exit_tema ? color.new(#FF0055, 0) : color.new(#00FF41, 0), bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
 
     // ─────────────────────────────────────────────────────────────────────────
     // Footer - Session Info
     // ─────────────────────────────────────────────────────────────────────────
-    table.cell(dashboard, 0, 19, "Timeframe", text_color=color.white, bgcolor=color.new(#0066FF, 30), text_size=size.tiny)
-    table.cell(dashboard, 1, 19, tf + " min", text_color=color.white, bgcolor=color.new(#0066FF, 30), text_size=size.tiny)
+    table.cell(dashboard, 0, 21, "Timeframe", text_color=color.white, bgcolor=color.new(#0066FF, 30), text_size=size.tiny)
+    table.cell(dashboard, 1, 21, tf + " min", text_color=color.white, bgcolor=color.new(#0066FF, 30), text_size=size.tiny)
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ALERTS - Enhanced with filter info
