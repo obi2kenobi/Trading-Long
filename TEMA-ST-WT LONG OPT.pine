@@ -81,8 +81,9 @@ wtN2_out     = 21
 // Sistema Filtri Intelligente
 // ─────────────────────────────────────────────────────────────────────────────
 useAdvancedFilters = input.bool(true, "🔧 Abilita Filtri Avanzati", group="Advanced Filters")
-minFiltersRequired = input.int(2, "Filtri Minimi Richiesti (su 5)", minval=0, maxval=5, group="Advanced Filters", tooltip="0=Nessun filtro, 2=Bilanciato, 5=Molto restrittivo")
-enableHTFBearBlock = input.bool(true, "Filtro HTF Bear (Daily ST)", group="Advanced Filters", tooltip="Penalizza segnali LONG quando il Supertrend Daily è bearish (conta come filtro nello scoring)")
+minFiltersRequired = input.int(2, "Filtri Minimi Richiesti (su 4)", minval=0, maxval=4, group="Advanced Filters", tooltip="0=Nessun filtro, 2=Bilanciato, 4=Molto restrittivo")
+enableHTFBearBlock = input.bool(true, "Blocca Long in HTF Bear", group="Advanced Filters", tooltip="Blocca LONG quando Daily close < EMA Daily (hard block, più reattivo del Supertrend)")
+htfEmaLen = input.int(21, "HTF EMA Period", minval=10, maxval=50, group="Advanced Filters", tooltip="Periodo EMA sul Daily per determinare regime bull/bear")
 
 // RSI Settings
 enableRSI    = input.bool(true, "Abilita Filtro RSI", group="RSI Filter")
@@ -211,17 +212,9 @@ wt1_out = ta.ema(ci_out, wtN2_out)
 wt2_out = ta.sma(wt1_out, 4)
 wtDown  = ta.crossunder(wt1_out, wt2_out)
 
-// Supertrend HTF (Daily) - Per filtro HTF Bear Block
-[close_D, hl2_D, atr10_D] = request.security(syminfo.tickerid, "D", [close, hl2, ta.atr(stPeriod_in)])
-upC_htf = hl2_D - stFactor_in * atr10_D
-dnC_htf = hl2_D + stFactor_in * atr10_D
-var float _up_htf = na
-var float _dn_htf = na
-var int trend_htf = 0
-_up_htf := close_D[1] > nz(_up_htf[1], upC_htf) ? math.max(upC_htf, nz(_up_htf[1], upC_htf)) : upC_htf
-_dn_htf := close_D[1] < nz(_dn_htf[1], dnC_htf) ? math.min(dnC_htf, nz(_dn_htf[1], dnC_htf)) : dnC_htf
-trend_htf := close_D > _dn_htf[1] ? 1 : close_D < _up_htf[1] ? -1 : nz(trend_htf[1])
-htfBearish = trend_htf == -1
+// HTF Filter (Daily) - EMA-based, più reattiva del Supertrend
+[close_D, ema_D] = request.security(syminfo.tickerid, "D", [close, ta.ema(close, htfEmaLen)])
+htfBearish = close_D < ema_D
 
 distATR = (close_tf - tema_in) / atr_in
 
@@ -271,19 +264,21 @@ isLateral  = isFlatSlope or rangeCond
 // CONDIZIONI ENTRY COMPLETE - Sistema Intelligente
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Condizioni base (originali) - SEMPRE RICHIESTE
-baseConditions = (trend_in == 1) and wtUp and (distATR <= maxDistATR) and not isLateral
+// Filtro HTF Bear: blocca LONG se Daily close < EMA Daily
+htfBearBlock = enableHTFBearBlock and htfBearish
+
+// Condizioni base (originali) - SEMPRE RICHIESTE + HTF hard block
+baseConditions = (trend_in == 1) and wtUp and (distATR <= maxDistATR) and not isLateral and not htfBearBlock
 
 // Sistema di Scoring dei Filtri Avanzati (solo filtri abilitati contano)
 rsiFilterPass    = enableRSI ? (rsiOK ? 1 : 0) : 0
 volumeFilterPass = enableVolume ? (volumeOK ? 1 : 0) : 0
 adxFilterPass    = enableADX ? (trendStrong ? 1 : 0) : 0
 gapFilterPass    = enableGapFilter ? (not hasGap ? 1 : 0) : 0
-htfFilterPass    = enableHTFBearBlock ? (not htfBearish ? 1 : 0) : 0
 
 // Calcolo filtri attivi e passati
-activeFiltersCount = (enableRSI ? 1 : 0) + (enableVolume ? 1 : 0) + (enableADX ? 1 : 0) + (enableGapFilter ? 1 : 0) + (enableHTFBearBlock ? 1 : 0)
-passedFiltersCount = rsiFilterPass + volumeFilterPass + adxFilterPass + gapFilterPass + htfFilterPass
+activeFiltersCount = (enableRSI ? 1 : 0) + (enableVolume ? 1 : 0) + (enableADX ? 1 : 0) + (enableGapFilter ? 1 : 0)
+passedFiltersCount = rsiFilterPass + volumeFilterPass + adxFilterPass + gapFilterPass
 
 // Logica intelligente: minimo richiesto limitato ai filtri attivi
 effectiveMinRequired = math.min(minFiltersRequired, activeFiltersCount)
@@ -672,8 +667,8 @@ if showDashboardEffective and barstate.islast
         table.cell(dashboard, 0, 12, "  Volatility", text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
         table.cell(dashboard, 1, 12, volRegimeText, text_color=volRegimeColor, bgcolor=color.new(#2D2D2D, 0), text_size=size.small)
 
-        // HTF Bear Block Filter
-        htfLabel = enableHTFBearBlock ? "  HTF Bear Block (D)" : "  HTF Bear (OFF)"
+        // HTF Bear Block Filter (Daily EMA)
+        htfLabel = enableHTFBearBlock ? "  HTF EMA(" + str.tostring(htfEmaLen) + ") Daily" : "  HTF Bear (OFF)"
         htfValue = enableHTFBearBlock ? (htfBearish ? "✗ BEAR" : "✓ BULL") : "-"
         htfColor = enableHTFBearBlock ? (htfBearish ? color.new(#FF0055, 0) : color.new(#00FF41, 0)) : color.new(color.gray, 0)
         table.cell(dashboard, 0, 13, htfLabel, text_color=color.white, bgcolor=color.new(#1E1E1E, 0), text_size=size.small)
