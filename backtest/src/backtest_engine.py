@@ -57,12 +57,38 @@ def _commission(notional: float, rate: float) -> float:
     return abs(notional) * rate
 
 
-def _compute_sl(entry_price: float, atr_val: float, p: StrategyParams) -> float:
-    if p.use_fixed_sl:
-        return entry_price * (1.0 - p.fixed_sl_perc - p.slippage_perc)
+@dataclass
+class _Targets:
+    """Targets crystallized at entry; do not recompute mid-trade."""
+    sl: float
+    tp1: float
+    tp2: float
+    tp3: float
+    trail_arm_level: float    # close >= this → arm trailing
+    trail_stop_level: float   # SL value once trailing armed
+
+
+def _compute_targets(entry_price: float, atr_at_entry: float, p: StrategyParams) -> _Targets:
+    if p.use_atr_targets:
+        sl = entry_price - p.sl_atr_mult * atr_at_entry - entry_price * p.slippage_perc
+        tp1 = entry_price + p.tp1_atr_mult * atr_at_entry
+        tp2 = entry_price + p.tp2_atr_mult * atr_at_entry
+        tp3 = entry_price + p.tp3_atr_mult * atr_at_entry
+        trail_arm = entry_price + p.trailing_activation_atr_mult * atr_at_entry
+        trail_stop = entry_price + p.trailing_offset_atr_mult * atr_at_entry
+        return _Targets(sl, tp1, tp2, tp3, trail_arm, trail_stop)
+
+    # Fixed % mode (legacy v6.4 behavior)
     if p.use_atr_sl:
-        return entry_price - atr_val * p.atr_sl_multiplier
-    return entry_price * (1.0 - p.fixed_sl_perc - p.slippage_perc)
+        sl = entry_price - atr_at_entry * p.atr_sl_multiplier
+    else:
+        sl = entry_price * (1.0 - p.fixed_sl_perc - p.slippage_perc)
+    tp1 = entry_price * (1.0 + p.tp1_perc) if p.use_take_profit else np.inf
+    tp2 = entry_price * (1.0 + p.tp2_perc) if p.use_take_profit else np.inf
+    tp3 = entry_price * (1.0 + p.tp3_perc) if p.use_take_profit else np.inf
+    trail_arm = entry_price * (1.0 + p.trailing_activation_perc)
+    trail_stop = entry_price * (1.0 + p.trailing_offset_perc)
+    return _Targets(sl, tp1, tp2, tp3, trail_arm, trail_stop)
 
 
 def _finalize(trade: Trade, bars_held: int) -> None:
@@ -100,6 +126,7 @@ def run_backtest(
     tp1_done = False
     tp2_done = False
     trailing_activated = False
+    targets: _Targets | None = None
     last_exit_bar = -10**9
     last_exit_was_loss = False
 
@@ -130,6 +157,9 @@ def run_backtest(
             tp1_done = False
             tp2_done = False
             trailing_activated = False
+            # Crystallize targets using ATR at entry (uses prior bar's ATR for safety)
+            atr_entry = atr_in[i] if not np.isnan(atr_in[i]) else (atr_in[i - 1] if i > 0 and not np.isnan(atr_in[i - 1]) else 0.0)
+            targets = _compute_targets(fill_price, atr_entry, p)
             cur = Trade(entry_time=idx[i], entry_price=fill_price, initial_qty=qty)
             f = TradeFill(idx[i], "ENTRY", fill_price, qty, -(qty * fill_price + commission))
             fills.append(f); cur.fills.append(f)
@@ -155,15 +185,11 @@ def run_backtest(
         pending_exit_signal = False
 
         # ── 2) Intra-bar SL/TP (only from entry_bar+1 onward) ─────────────────
-        if qty > 1e-9 and i > entry_bar:
-            atr_val = atr_in[i] if not np.isnan(atr_in[i]) else 0.0
-            sl_price = _compute_sl(entry_price, atr_val, p)
-            if trailing_activated:
-                sl_price = entry_price * (1.0 + p.trailing_offset_perc)
-
-            tp1 = entry_price * (1.0 + p.tp1_perc) if p.use_take_profit else np.inf
-            tp2 = entry_price * (1.0 + p.tp2_perc) if p.use_take_profit else np.inf
-            tp3 = entry_price * (1.0 + p.tp3_perc) if p.use_take_profit else np.inf
+        if qty > 1e-9 and i > entry_bar and targets is not None:
+            sl_price = targets.trail_stop_level if trailing_activated else targets.sl
+            tp1 = targets.tp1
+            tp2 = targets.tp2
+            tp3 = targets.tp3
 
             bar_open, bar_high, bar_low = o[i], h[i], l[i]
             sl_triggered = False
@@ -237,9 +263,8 @@ def run_backtest(
                     qty = 0.0
 
         # ── 3) End-of-bar: trailing arm + queue entry/exit for next bar ───────
-        if qty > 1e-9:
-            current_profit = (c[i] - entry_price) / entry_price
-            if p.enable_trailing and current_profit >= p.trailing_activation_perc:
+        if qty > 1e-9 and targets is not None:
+            if p.enable_trailing and c[i] >= targets.trail_arm_level:
                 trailing_activated = True
             if exit_signal[i]:
                 pending_exit_signal = True
