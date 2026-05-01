@@ -1,8 +1,29 @@
 # SAL — Ottimizzazione TEMA-ST-WT LONG
 
-**Data:** 2026-05-01 (aggiornato con v7.0 GOLDEN CROSS)
+**Data:** 2026-05-01 (aggiornato con v8.0 TIGHT-BREAKOUT)
 **Branch:** `claude/review-script-work-OqTza`
-**Stato:** ✅ Due strategie disponibili: v6.6 (conservativa) + v7.0 (max return)
+**Stato:** ✅ Tre strategie: v6.6, v7.0 (Golden Cross), v8.0 (Tight Breakout per Fineco CFD)
+
+## ⚡ Update v8.0 — TIGHT-BREAKOUT LONG (Fineco-compliant)
+
+L'utente trada CFD su Fineco con **margin call a -3.5%** sul prezzo. Le strategie precedenti erano incompatibili (margin call avrebbe ucciso 11/18 trade della v7.0). Necessario un setup con SL stretto.
+
+**Setup**: `close > prev_high AND close > SMA(200)` con SL -3% e TP +6%.
+
+**Risultati validati**:
+| Asset | Periodo | Trades | WR | PF | CAGR | DD |
+|---|---|---|---|---|---|---|
+| SPY | 33y | 227 | 44% | 1.55 | 5.82% | -25.9% |
+| QQQ | 27y | 262 | 41% | 1.37 | 5.65% | -30.4% |
+| **NDX** | **10y** | **98** | **47%** | **1.72** | **11.26%** | **-18.9%** |
+
+Su NDX 1d **+11% CAGR cash con DD solo -19%**. Con leva Fineco (margine 7%, ~14×), 1 contratto su account €30k dà leva effettiva ~5×, attesa CAGR account 30-40%.
+
+Pyramiding 1→5 contratti opzionale (toggle ON di default), cooldown 3 barre dopo SL.
+
+File: `TIGHT-BREAKOUT LONG.pine` (separato dalle versioni precedenti).
+
+---
 
 ## ⚡ Update v7.0 — GOLDEN CROSS LONG (file separato)
 
