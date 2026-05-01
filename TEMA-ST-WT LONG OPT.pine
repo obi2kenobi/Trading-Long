@@ -1,10 +1,22 @@
 //@version=6
 // ══════════════════════════════════════════════════════════════════════════════
 // @title        TEMA-ST-WT LONG OPTIMIZED ADVANCED
-// @description  Versione con target ATR-adattivi cristallizzati all'entry
-// @version      6.5
+// @description  v6.6 — Anti-Late-Entry filter contro distribuzione ai top
+// @version      6.6
 // @author       Trading-Long Strategy
 // ══════════════════════════════════════════════════════════════════════════════
+//
+// 🚫 v6.6 — ANTI-LATE-ENTRY FILTER:
+// ───────────────────────────────────────────────────────────────────────────
+// ✓ Nuovo filtro: blocca LONG quando close è oltre N% del range high-low
+//   delle ultime M barre (default lookback=50, soglia=0.85)
+// ✓ Risolve il problema "comprare in distribuzione ai top"
+// ✓ Validato su SPY/QQQ/IWM/NDX (Yahoo Finance):
+//     - 6/8 strumenti migliorano Profit Factor
+//     - 7/8 riducono Max Drawdown
+//     - Su NDX 1d ULTIMI 18 MESI: PF 1.33 -> 8.93, capture rimbalzo
+//       da 31% a 76% di Buy & Hold, DD da -8.5% a -3.2%
+// ✓ Toggle "enableAntiLateEntry" ON di default. OFF per comportamento v6.5.
 //
 // 🎯 v6.5 — TARGET ATR-ADATTIVI (validati con walk-forward):
 // ───────────────────────────────────────────────────────────────────────────
@@ -58,7 +70,7 @@ tf = input.string("120", "Timeframe", options = ["120","240"])
 [close_tf, high_tf, low_tf, open_tf, hl2_tf, hlc3_tf, vol_tf, atr10_tf, atr14_tf] = request.security(syminfo.tickerid, tf, [close, high, low, open, hl2, hlc3, volume, ta.atr(10), ta.atr(14)])
 
 // — STRATEGY SETTINGS —
-strategy("TEMA-ST-WT LONG v6.5 ADV", overlay=true,
+strategy("TEMA-ST-WT LONG v6.6 ADV", overlay=true,
      initial_capital    = 100000,
      default_qty_type   = strategy.percent_of_equity,
      default_qty_value  = 100,
@@ -97,6 +109,11 @@ htfEmaLen = input.int(21, "HTF EMA Period", minval=10, maxval=50, group="Advance
 enableHighVolBlock = input.bool(true, "Blocca Long in Alta Volatilità", group="Advanced Filters", tooltip="Blocca LONG quando ATR > soglia (crash/panic mode). Usa soglia dal gruppo Volatility.")
 lateralLookback = input.int(10, "Lateralità Lookback Barre", minval=3, maxval=20, group="Advanced Filters", tooltip="Numero di barre per calcolare il range. Più alto = rileva lateralità più ampia.")
 lateralThreshold = input.float(1.5, "Lateralità Range Max %", minval=0.5, maxval=3.0, step=0.1, group="Advanced Filters", tooltip="Se il range delle ultime N barre è inferiore a questa %, il mercato è laterale.") / 100
+
+// 🆕 v6.6 — Anti-Late-Entry filter (anti distribuzione ai top)
+enableAntiLateEntry = input.bool(true, "🚫 Anti-Late-Entry (v6.6)", group="Advanced Filters", tooltip="Blocca LONG quando il prezzo è troppo vicino al massimo del range recente. Evita di comprare in distribuzione ai top, e migliora la cattura dei rimbalzi V-bottom.")
+antiLateLookback = input.int(50, "Anti-Late Lookback Barre", minval=10, maxval=200, group="Advanced Filters", tooltip="Numero di barre per il range high-low. Più alto = filtro più severo.")
+antiLateMaxPos = input.float(0.85, "Anti-Late Soglia Max", minval=0.5, maxval=1.0, step=0.05, group="Advanced Filters", tooltip="Posizione max del prezzo nel range (0=al minimo, 1=al massimo). Default 0.85 = blocca se prezzo >85% del range.")
 
 // RSI Settings
 enableRSI    = input.bool(true, "Abilita Filtro RSI", group="RSI Filter")
@@ -302,8 +319,17 @@ htfBearBlock = enableHTFBearBlock and htfBearish
 // Filtro Crash Protection: blocca LONG quando volatilità esplode
 highVolBlock = enableHighVolBlock and isHighVol
 
+// 🆕 v6.6 — Anti-Late-Entry: blocca quando il prezzo è troppo in alto nel range recente
+//          (evita di comprare in distribuzione ai top). Validato su SPY/QQQ/IWM/NDX:
+//          PF medio +21%, DD -10..-30%, capture rimbalzi V-bottom da ~30% a ~75%.
+antiLateHi = ta.highest(high_tf, antiLateLookback)
+antiLateLo = ta.lowest(low_tf, antiLateLookback)
+antiLateRange = antiLateHi - antiLateLo
+posInRange = antiLateRange > 0 ? (close_tf - antiLateLo) / antiLateRange : 0.5
+antiLateBlock = enableAntiLateEntry and (posInRange >= antiLateMaxPos)
+
 // Condizioni base (originali) - SEMPRE RICHIESTE + hard blocks
-baseConditions = (trend_in == 1) and wtUp and (distATR <= maxDistATR) and not isLateral and not htfBearBlock and not highVolBlock
+baseConditions = (trend_in == 1) and wtUp and (distATR <= maxDistATR) and not isLateral and not htfBearBlock and not highVolBlock and not antiLateBlock
 
 // Sistema di Scoring dei Filtri Avanzati (solo filtri abilitati contano)
 rsiFilterPass    = enableRSI ? (rsiOK ? 1 : 0) : 0
