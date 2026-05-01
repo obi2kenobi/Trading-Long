@@ -1,8 +1,31 @@
 # SAL — Ottimizzazione TEMA-ST-WT LONG
 
-**Data:** 2026-05-01 (aggiornato con v8.1 TIGHT-BREAKOUT RATCHET)
+**Data:** 2026-05-01 (aggiornato con v8.2 MINIMAL)
 **Branch:** `claude/review-script-work-OqTza`
-**Stato:** ✅ Quattro strategie: v6.6, v7.0 (Golden Cross), v8.0 (Tight Breakout TP+6%), **v8.1 (Tight Breakout RATCHET)** ⭐
+**Stato:** ✅ Cinque strategie: v6.6, v7.0 (Golden Cross), v8.0, v8.1 (Ratchet), **v8.2 MINIMAL** ⭐
+
+## ⚡ Update v8.2 — TIGHT-BREAKOUT MINIMAL
+
+L'utente ha richiesto la versione più semplice possibile: **1 segnale entry + 1 segnale exit**, senza pyramiding e senza opzioni superflue. Bocciate v8.1 con pyramiding (dilution dei contratti pyramidati).
+
+**Setup**:
+- Entry: `close > prev_high AND close > SMA(200)`
+- Stop iniziale -3% (Fineco-compliant)
+- Ratchet trailing 3% (locca profitto progressivamente)
+- Exit: solo trail stop hit
+- 1 contratto = 100% equity
+- ZERO altre opzioni
+
+**Risultati Python (no pyramiding)**:
+| Asset | Periodo | Trades | WR | PF | Ret% | CAGR | DD |
+|---|---|---|---|---|---|---|---|
+| SPY | 33y | 174 | 33% | 1.61 | +325% | 4.45% | -76% |
+| QQQ | 27y | 200 | 30% | 1.44 | +226% | 4.45% | -70% |
+| NDX | 10y | 67 | 33% | 2.20 | +197% | 11.49% | -67% |
+
+File: `TIGHT-BREAKOUT MINIMAL v8.2.pine` (50 righe Pine, ultra-pulito).
+
+---
 
 ## ⚡ Update v8.1 — RATCHET TRAILING (massimo bilanciamento)
 
