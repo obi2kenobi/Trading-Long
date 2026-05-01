@@ -1,0 +1,2 @@
+sl_atr_mult,tp1_atr_mult,tp2_atr_mult,tp3_atr_mult,trailing_activation_atr_mult,mean_Sharpe,std_Sharpe,min_Sharpe,mean_PF,mean_DD,worst_DD,mean_Ret,mean_Trades,mean_WinR,n_folds
+1.5,1.5,3.5,8.0,3.0,1.0734455162146088,1.0459147259364172,0.04117599051420776,2.252656160475617,-7.488055225579697,-10.933748319494002,9.098639399151196,5.2,41.0,5
