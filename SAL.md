@@ -1,8 +1,27 @@
 # SAL — Ottimizzazione TEMA-ST-WT LONG
 
-**Data:** 2026-05-01 (aggiornato con v6.6)
+**Data:** 2026-05-01 (aggiornato con v7.0 GOLDEN CROSS)
 **Branch:** `claude/review-script-work-OqTza`
-**Stato:** ✅ v6.6 pronto al test su TradingView
+**Stato:** ✅ Due strategie disponibili: v6.6 (conservativa) + v7.0 (max return)
+
+## ⚡ Update v7.0 — GOLDEN CROSS LONG (file separato)
+
+L'utente ha richiesto la **migliore strategia per massimizzare gli utili**. Grid search di 200+ setup trend-follow su SPY 33y / QQQ 27y / NDX 10y. Vincitore matematico:
+
+**Setup**: `Long quando SMA(50) > SMA(200)`, flat altrimenti.
+
+**Risultati validati**:
+| Asset | Periodo | Strategy | B&H | Capture | DD |
+|---|---|---|---|---|---|
+| SPY | 33y | **+1882%** | +2887% | 65% | -33.7% |
+| QQQ | 27y | **+1552%** | +1466% | **106%** ⭐ | -36.5% |
+| NDX | 10y | **+360%** | +533% | 67% | -28.0% |
+
+Su QQQ **batte Buy & Hold** in 27 anni grazie all'evitato dot-com (DD -36% vs -83%).
+
+File: `GOLDEN-CROSS LONG.pine` (v6.6 resta intatto per confronto).
+
+---
 
 ## ⚡ Update v6.6 — Anti-Late-Entry filter
 
