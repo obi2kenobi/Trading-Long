@@ -57,7 +57,7 @@ class StrategyParams:
     high_vol_multiplier: float = 1.5
     low_vol_threshold: float = 0.7
 
-    # Risk
+    # Risk — Stop Loss
     slippage_perc: float = 0.0005  # 0.05%
     use_fixed_sl: bool = True
     fixed_sl_perc: float = 0.015
@@ -71,12 +71,25 @@ class StrategyParams:
     trailing_activation_perc: float = 0.025
     trailing_offset_perc: float = 0.005
 
+    # Take Profit — fixed % mode (default)
     use_take_profit: bool = True
     tp1_perc: float = 0.025
-    tp1_qty: float = 30.0  # % of position
+    tp1_qty: float = 30.0  # % of position closed at TP1
     tp2_perc: float = 0.05
     tp2_qty: float = 30.0
     tp3_perc: float = 0.08
+
+    # Take Profit — ATR-adaptive mode (overrides fixed % when use_atr_targets=True)
+    # SL = entry - sl_atr_mult * ATR_at_entry
+    # TPn = entry + tpN_atr_mult * ATR_at_entry
+    use_atr_targets: bool = False
+    sl_atr_mult: float = 1.5
+    tp1_atr_mult: float = 1.5
+    tp2_atr_mult: float = 3.0
+    tp3_atr_mult: float = 5.0
+    # If use_atr_targets, trailing activation can also be ATR-based:
+    trailing_activation_atr_mult: float = 2.0  # arm trailing once profit >= this * ATR
+    trailing_offset_atr_mult: float = 0.5      # SL after activation = entry + this * ATR
 
     # Commission (one-way), as fraction
     commission_perc: float = 0.0001  # 0.01%
