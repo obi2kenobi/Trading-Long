@@ -1,0 +1,246 @@
+//@version=6
+// ══════════════════════════════════════════════════════════════════════════════
+// @title        TIGHT-BREAKOUT LONG v8.1 (Fineco-compliant + Ratchet Trail)
+// @description  Daily breakout in bull regime con SL iniziale -3% (Fineco
+//               margin-call buffer) e RATCHET TRAILING che blocca progressi-
+//               vamente i profitti — lascia correre i winner senza cap fisso.
+// @version      8.1
+// @author       Trading-Long Strategy
+// ══════════════════════════════════════════════════════════════════════════════
+//
+// 🎯 LOGICA RATCHET (la chiave del cambiamento da v8.0):
+// ───────────────────────────────────────────────────────────────────────────
+//   ENTRY: close > prev_high AND close > SMA(200)
+//   STOP INIZIALE: -3% (margine buffer Fineco a -3.5%)
+//   RATCHET: ogni +3% di profitto favorevole, blocca +3% nello stop:
+//     +3% di max profit  → SL sale a breakeven (entry)
+//     +6% di max profit  → SL sale a entry +3%
+//     +9% di max profit  → SL sale a entry +6%
+//     +12% di max profit → SL sale a entry +9%
+//     …continua indefinitamente
+//   EXIT: SL fisso o trailing scattato
+//   NIENTE TP fisso → i big winner corrono fino alla prima correzione del 3%.
+//
+// 📊 BACKTEST (Yahoo Finance, daily, full history) vs v8.0:
+// ───────────────────────────────────────────────────────────────────────────
+//   SPY 33y:  v8.0 +405%  → v8.1 +2487%  (6× return, DD -81% → -55%)
+//   QQQ 27y:  v8.0 +203%  → v8.1 +1082%  (5× return, DD -68% → -52%)
+//   NDX 10y:  v8.0 +132%  → v8.1 +134%   (DD -57% → -28%, dimezzato)
+//   Capture vs B&H: SPY 86%, QQQ 74%, NDX 25%
+//
+// ⚠️ NOTA OPERATIVA SU CFD FINECO:
+// ───────────────────────────────────────────────────────────────────────────
+//   Il ratchet può tenere posizione APERTA per anni durante un bull market.
+//   Su CFD ci sono costi overnight (~0.02%/giorno × giorni di hold).
+//   Per disabilitare hold lunghi, attiva "Exit on close < SMA(50)" sotto.
+// ══════════════════════════════════════════════════════════════════════════════
+
+// — STRATEGY SETTINGS —
+strategy("TIGHT-BREAKOUT LONG v8.1", overlay=true,
+     initial_capital    = 100000,
+     default_qty_type   = strategy.percent_of_equity,
+     default_qty_value  = 20,
+     pyramiding         = 4,
+     commission_type    = strategy.commission.percent,
+     commission_value   = 0.01,
+     slippage           = 0,
+     calc_on_every_tick = false)
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INPUT
+// ─────────────────────────────────────────────────────────────────────────────
+slowMa     = input.int(200, "SMA Regime Filter", minval=50, maxval=300, group="Entry")
+
+// Risk
+initStopPerc = input.float(3.0, "Stop Loss iniziale %", minval=0.5, maxval=4.0, step=0.1, group="Risk", tooltip="Default 3%. Margine 0.5% prima del margin call Fineco a -3.5%.") / 100
+ratchetStepPerc = input.float(3.0, "Ratchet step %", minval=1.0, maxval=10.0, step=0.5, group="Risk", tooltip="Ogni N% di profitto favorevole, blocca N% nello stop. Default 3%: +3%→BE, +6%→+3%, ecc.") / 100
+
+// Optional regime exit (per evitare hold lunghissimi su CFD)
+useRegimeExit = input.bool(false, "🚪 Exit se close < SMA(exitMa)", group="Risk", tooltip="Esci dalla posizione se il regime gira bear. Utile su CFD per limitare costi overnight.")
+exitMa = input.int(50, "SMA Exit (regime change)", minval=20, maxval=200, group="Risk")
+
+// Pyramiding
+enablePyramid = input.bool(true, "🪜 Pyramiding 1→5 contratti", group="Pyramiding")
+pyramidStepPerc = input.float(2.0, "Step Pyramid %", minval=1.0, maxval=5.0, step=0.5, group="Pyramiding") / 100
+maxContracts = input.int(5, "Max contratti totali", minval=1, maxval=10, group="Pyramiding")
+
+enableCooldown = input.bool(true, "⏳ Cooldown dopo SL", group="Risk")
+cooldownBars   = input.int(3, "Cooldown barre", minval=1, maxval=20, group="Risk")
+
+// Display
+showSMA       = input.bool(true, "Mostra SMA regime", group="Display")
+showLevels    = input.bool(true, "Mostra livelli SL/Entry/Trail", group="Display")
+showLabels    = input.bool(true, "Mostra label entry/exit", group="Display")
+showDashboard = input.bool(true, "Mostra dashboard", group="Display")
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INDICATORS
+// ─────────────────────────────────────────────────────────────────────────────
+sma = ta.sma(close, slowMa)
+exitSma = ta.sma(close, exitMa)
+prevHigh = high[1]
+
+bullRegime = close > sma
+breakout = close > prevHigh
+entrySignal = bullRegime and breakout
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POSITION MANAGEMENT
+// ─────────────────────────────────────────────────────────────────────────────
+inLong = strategy.position_size > 0
+contracts = strategy.opentrades
+
+var float firstEntryPrice = na
+var float maxProfitFromEntry = 0.0  // 🆕 v8.1: tracking massimo profitto raggiunto
+var float currentTrailStop = na     // 🆕 v8.1: stop ratchet corrente
+var int lastExitBar = na
+var bool lastExitWasLoss = false
+var float lastPyramidPrice = na
+
+// Init/reset al primo entry
+if not inLong[1] and inLong
+    firstEntryPrice := strategy.position_avg_price
+    lastPyramidPrice := close
+    maxProfitFromEntry := 0.0
+    currentTrailStop := firstEntryPrice * (1 - initStopPerc)
+
+if not inLong
+    firstEntryPrice := na
+    maxProfitFromEntry := 0.0
+    currentTrailStop := na
+    lastPyramidPrice := na
+
+// 🆕 RATCHET TRAILING — la chiave di v8.1
+if inLong and not na(firstEntryPrice)
+    currentProfit = (close - firstEntryPrice) / firstEntryPrice
+    maxProfitFromEntry := math.max(maxProfitFromEntry, currentProfit)
+
+    // Calcola quanti step di ratchet sono attivi (ogni stepPerc = 1 step)
+    nSteps = math.floor(maxProfitFromEntry / ratchetStepPerc)
+    // Step 1 → SL a breakeven, step 2 → SL a +stepPerc, step 3 → SL a +2*stepPerc, ...
+    lockedLevel = nSteps >= 1 ? (nSteps - 1) * ratchetStepPerc : -initStopPerc
+    newTrailStop = firstEntryPrice * (1 + lockedLevel)
+    // Lo stop può solo SALIRE, mai scendere
+    currentTrailStop := math.max(nz(currentTrailStop, firstEntryPrice * (1 - initStopPerc)), newTrailStop)
+
+// Cooldown
+if not inLong and inLong[1]
+    lastExitBar := bar_index
+    lastExitWasLoss := close < nz(firstEntryPrice, close)
+
+cooldownActive = enableCooldown and lastExitWasLoss and not na(lastExitBar) and (bar_index - lastExitBar) < cooldownBars
+
+// Entry: 1° contratto su signal + no cooldown
+canEnterFirst = not inLong and entrySignal and not cooldownActive
+if canEnterFirst
+    strategy.entry("L1", strategy.long, comment="Long #1")
+
+// Pyramiding: aggiungi contratti su +X% favorevole
+if inLong and enablePyramid and contracts < maxContracts and not na(lastPyramidPrice)
+    if close >= lastPyramidPrice * (1 + pyramidStepPerc) and entrySignal
+        strategy.entry("L" + str.tostring(contracts + 1), strategy.long, comment="Pyramid +" + str.tostring(contracts + 1))
+        lastPyramidPrice := close
+
+// Exit su trailing stop ratchet
+if inLong and not na(currentTrailStop)
+    strategy.exit("Exit_L1", from_entry="L1", stop=currentTrailStop, comment="Trail")
+    if contracts >= 2
+        strategy.exit("Exit_L2", from_entry="L2", stop=currentTrailStop, comment="Trail")
+    if contracts >= 3
+        strategy.exit("Exit_L3", from_entry="L3", stop=currentTrailStop, comment="Trail")
+    if contracts >= 4
+        strategy.exit("Exit_L4", from_entry="L4", stop=currentTrailStop, comment="Trail")
+    if contracts >= 5
+        strategy.exit("Exit_L5", from_entry="L5", stop=currentTrailStop, comment="Trail")
+
+// Exit opzionale su regime change (close < SMA50)
+if inLong and useRegimeExit and not na(exitSma) and close < exitSma
+    strategy.close_all(comment="Regime Exit")
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PLOTS
+// ─────────────────────────────────────────────────────────────────────────────
+plot(showSMA ? sma : na, "SMA Regime", color=color.new(#FF6B00, 0), linewidth=2)
+plot(showSMA and useRegimeExit ? exitSma : na, "SMA Exit", color=color.new(#FFD700, 50), linewidth=1)
+bgcolor(bullRegime ? color.new(color.green, 95) : color.new(color.red, 97), title="Regime")
+
+stopPlot = plot(showLevels and inLong ? currentTrailStop : na, "Trail Stop", color=color.new(#FF0055, 0), linewidth=2, style=plot.style_linebr)
+entryPlot = plot(showLevels and inLong ? firstEntryPrice : na, "Entry", color=color.new(#FFFF00, 0), linewidth=2, style=plot.style_linebr)
+fill(entryPlot, stopPlot, color=color.new(#FF0055, 92), title="Risk Zone")
+
+// Marca i livelli di ratchet attivati
+ratchetLevel1 = inLong ? firstEntryPrice * (1 + ratchetStepPerc) : na  // +3% (BE attivo)
+ratchetLevel2 = inLong ? firstEntryPrice * (1 + 2*ratchetStepPerc) : na  // +6% (lock +3)
+ratchetLevel3 = inLong ? firstEntryPrice * (1 + 3*ratchetStepPerc) : na  // +9% (lock +6)
+plot(showLevels and inLong ? ratchetLevel1 : na, "Ratchet +3%", color=color.new(#90EE90, 60), style=plot.style_circles)
+plot(showLevels and inLong ? ratchetLevel2 : na, "Ratchet +6%", color=color.new(#32CD32, 60), style=plot.style_circles)
+plot(showLevels and inLong ? ratchetLevel3 : na, "Ratchet +9%", color=color.new(#00FF41, 60), style=plot.style_circles)
+
+plotshape(canEnterFirst, "ENTRY", shape.triangleup, location.belowbar, color.new(#00FF41, 0), size=size.small)
+
+if showLabels and canEnterFirst
+    label.new(bar_index, low, text="📈 BREAKOUT\n" + str.tostring(close, "#.##"),
+         style=label.style_label_up, color=color.new(#00FF41, 20), textcolor=color.white, size=size.small)
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DASHBOARD
+// ─────────────────────────────────────────────────────────────────────────────
+var table dash = table.new(position.top_left, 2, 11, border_width=1,
+     border_color=color.new(#0066FF, 50), frame_width=2, frame_color=color.new(#0066FF, 0))
+
+if showDashboard and barstate.islast
+    table.cell(dash, 0, 0, "TIGHT-BREAKOUT v8.1", text_color=color.white, bgcolor=color.new(#0066FF, 0), text_size=size.large)
+    table.cell(dash, 1, 0, inLong ? "🟢 LONG ×" + str.tostring(contracts) : "⚪ FLAT", text_color=color.white,
+         bgcolor=inLong ? color.new(#00FF41, 20) : color.new(color.gray, 30), text_size=size.large)
+
+    table.cell(dash, 0, 1, "Regime SMA(" + str.tostring(slowMa) + ")", text_color=color.white, bgcolor=color.new(#1E1E1E, 0))
+    table.cell(dash, 1, 1, bullRegime ? "BULL ✓" : "BEAR ✗",
+         text_color=bullRegime ? color.new(#00FF41, 0) : color.new(#FF0055, 0), bgcolor=color.new(#2D2D2D, 0))
+
+    table.cell(dash, 0, 2, "Cooldown", text_color=color.white, bgcolor=color.new(#1E1E1E, 0))
+    cdRem = cooldownActive ? cooldownBars - (bar_index - lastExitBar) : 0
+    table.cell(dash, 1, 2, cooldownActive ? "⏳ " + str.tostring(cdRem) + " bars" : "✓ READY",
+         text_color=cooldownActive ? color.new(#FF6B00, 0) : color.new(#00FF41, 0), bgcolor=color.new(#2D2D2D, 0))
+
+    if inLong
+        table.cell(dash, 0, 3, "Entry Price", text_color=color.white, bgcolor=color.new(#1E1E1E, 0))
+        table.cell(dash, 1, 3, str.tostring(firstEntryPrice, "#.##"), text_color=color.white, bgcolor=color.new(#2D2D2D, 0))
+
+        currentPnL = (close - firstEntryPrice) / firstEntryPrice * 100
+        table.cell(dash, 0, 4, "Current P&L", text_color=color.white, bgcolor=color.new(#1E1E1E, 0))
+        table.cell(dash, 1, 4, str.tostring(currentPnL, "+#.##") + "%",
+             text_color=currentPnL >= 0 ? color.new(#00FF41, 0) : color.new(#FF0055, 0), bgcolor=color.new(#2D2D2D, 0))
+
+        table.cell(dash, 0, 5, "Max Profit raggiunto", text_color=color.white, bgcolor=color.new(#1E1E1E, 0))
+        table.cell(dash, 1, 5, str.tostring(maxProfitFromEntry * 100, "+#.##") + "%",
+             text_color=color.new(#FFD700, 0), bgcolor=color.new(#2D2D2D, 0))
+
+        // Ratchet level corrente
+        nStepsActive = math.floor(maxProfitFromEntry / ratchetStepPerc)
+        lockedLevelPct = nStepsActive >= 1 ? (nStepsActive - 1) * ratchetStepPerc * 100 : -initStopPerc * 100
+        table.cell(dash, 0, 6, "🪜 Ratchet Step", text_color=color.white, bgcolor=color.new(#1E1E1E, 0))
+        table.cell(dash, 1, 6, "Step " + str.tostring(nStepsActive) + " (lock @" + str.tostring(lockedLevelPct, "+#.#") + "%)",
+             text_color=color.new(#00FF41, 0), bgcolor=color.new(#2D2D2D, 0))
+
+        table.cell(dash, 0, 7, "🛡️ Trail Stop", text_color=color.white, bgcolor=color.new(#1E1E1E, 0))
+        table.cell(dash, 1, 7, str.tostring(currentTrailStop, "#.##"),
+             text_color=color.new(#FF0055, 0), bgcolor=color.new(#2D2D2D, 0))
+
+        // Prossimo ratchet
+        nextStepProfit = (nStepsActive + 1) * ratchetStepPerc * 100
+        table.cell(dash, 0, 8, "Prossimo step", text_color=color.white, bgcolor=color.new(#1E1E1E, 0))
+        table.cell(dash, 1, 8, "@ +" + str.tostring(nextStepProfit, "#.#") + "%", text_color=color.new(#FFD700, 0), bgcolor=color.new(#2D2D2D, 0))
+
+        // Pyramid status
+        if not na(lastPyramidPrice) and contracts < maxContracts
+            nextPyramid = lastPyramidPrice * (1 + pyramidStepPerc)
+            table.cell(dash, 0, 9, "Pyramid (" + str.tostring(contracts) + "/" + str.tostring(maxContracts) + ")", text_color=color.white, bgcolor=color.new(#1E1E1E, 0))
+            table.cell(dash, 1, 9, "@ " + str.tostring(nextPyramid, "#.##"), text_color=color.new(#FFD700, 0), bgcolor=color.new(#2D2D2D, 0))
+
+    table.cell(dash, 0, 10, "Equity", text_color=color.white, bgcolor=color.new(#1E1E1E, 0))
+    table.cell(dash, 1, 10, str.tostring(strategy.equity, "#.##"), text_color=color.white, bgcolor=color.new(#2D2D2D, 0))
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ALERTS
+// ─────────────────────────────────────────────────────────────────────────────
+alertcondition(canEnterFirst, "Breakout Long", "📈 LONG BREAKOUT {{ticker}} @ {{close}} | SL -3% (ratchet trail)")

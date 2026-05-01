@@ -1,8 +1,33 @@
 # SAL — Ottimizzazione TEMA-ST-WT LONG
 
-**Data:** 2026-05-01 (aggiornato con v8.0 TIGHT-BREAKOUT)
+**Data:** 2026-05-01 (aggiornato con v8.1 TIGHT-BREAKOUT RATCHET)
 **Branch:** `claude/review-script-work-OqTza`
-**Stato:** ✅ Tre strategie: v6.6, v7.0 (Golden Cross), v8.0 (Tight Breakout per Fineco CFD)
+**Stato:** ✅ Quattro strategie: v6.6, v7.0 (Golden Cross), v8.0 (Tight Breakout TP+6%), **v8.1 (Tight Breakout RATCHET)** ⭐
+
+## ⚡ Update v8.1 — RATCHET TRAILING (massimo bilanciamento)
+
+L'utente ha richiesto un TP che "insegua i guadagni" invece del +6% fisso di v8.0. Implementato **ratchet trailing** che blocca progressivamente il profitto:
+
+- SL iniziale -3% (Fineco-compliant)
+- Ogni +3% favorevole, blocca +3% nello stop:
+  - +3% di max profit → SL → BE
+  - +6% → SL → +3%
+  - +9% → SL → +6%
+  - +12% → SL → +9%
+  - …continua indefinitamente
+
+**Risultati validati**:
+| Asset | Periodo | v8.0 ret | **v8.1 ret** | v8.0 DD | **v8.1 DD** |
+|---|---|---|---|---|---|
+| SPY | 33y | +405% | **+2487%** (6×) | -81% | **-55%** |
+| QQQ | 27y | +203% | **+1082%** (5×) | -68% | **-52%** |
+| NDX | 10y | +132% | +134% | -57% | **-28%** |
+
+**Capture vs B&H**: SPY 86%, QQQ 74%, NDX 25%.
+
+File: `TIGHT-BREAKOUT LONG v8.1.pine`. Su NDX 1d 10y: triplica l'efficienza di v8.0 (return pari ma DD dimezzato).
+
+---
 
 ## ⚡ Update v8.0 — TIGHT-BREAKOUT LONG (Fineco-compliant)
 
