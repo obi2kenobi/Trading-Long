@@ -1,8 +1,32 @@
 # SAL — Ottimizzazione TEMA-ST-WT LONG
 
-**Data:** 2026-05-01
+**Data:** 2026-05-01 (aggiornato con v6.6)
 **Branch:** `claude/review-script-work-OqTza`
-**Stato:** ✅ Completato — Pine v6.5 pronto al test su TradingView
+**Stato:** ✅ v6.6 pronto al test su TradingView
+
+## ⚡ Update v6.6 — Anti-Late-Entry filter
+
+Dopo i test TV su NDX 1d, l'utente ha notato che la strategia **comprava ai top** durante il chop e **mancava i rimbalzi V-bottom**. Analisi:
+
+- Durante chop al top, prezzo era al **93% del range** quando si attivavano i LONG → entrate tardive
+- Durante recovery (apr-mag 2026), filtri non si riallineavano in tempo
+
+**Soluzione: filtro `posInRange < 0.85` (range = highest(high,50) - lowest(low,50))**
+
+Risultati validazione (Python su Yahoo data):
+
+| Strumento | TF | Baseline PF | v6.6 PF | DD Baseline | DD v6.6 |
+|---|---|---|---|---|---|
+| NDX | 1d | 2.14 | **2.58** | -17.4% | -17.4% |
+| QQQ | 1d | 2.34 | **2.48** | -18.5% | -18.5% |
+| SPY | 4h | 2.33 | **3.95** | -7.2% | -4.7% |
+| IWM | 1d | 1.62 | 1.69 | -22.0% | **-14.6%** |
+
+**Su NDX 1d ULTIMI 18 mesi (recovery period):** PF da 1.33 a **8.93**, capture B&H da 31% a **76%**, DD da -8.5% a **-3.2%**.
+
+Toggle ON di default. OFF = comportamento v6.5.
+
+---
 
 ---
 
