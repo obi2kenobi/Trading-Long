@@ -23,7 +23,8 @@ DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 REPORTS = Path(__file__).resolve().parent.parent / "reports"
 
 TICKERS = ["SPY", "QQQ", "IWM"]
-TF_LABELS = ["240m", "1d"]
+TF_DAILY = "1d"
+TF_LABELS = ["240m", TF_DAILY]
 
 
 def load_csv(path: Path) -> pd.DataFrame:
@@ -54,7 +55,7 @@ def optimized_params() -> StrategyParams:
 
 def run_one(ticker: str, tf: str, params: StrategyParams, label: str) -> dict:
     df = load_csv(DATA_DIR / f"{ticker}_{tf}.csv")
-    daily_df = load_csv(DATA_DIR / f"{ticker}_1d.csv") if tf != "1d" else df
+    daily_df = load_csv(DATA_DIR / f"{ticker}_{TF_DAILY}.csv") if tf != TF_DAILY else df
     sig = compute_signals(df, params, daily_df=daily_df)
     res = run_backtest(df, sig, params)
     m = compute_metrics(res)
