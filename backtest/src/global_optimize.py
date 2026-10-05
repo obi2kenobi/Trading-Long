@@ -41,6 +41,9 @@ def _precompute(ticker: str, tf: str, n_folds: int):
     return df, sig, folds
 
 
+# Run one parameter combo through every (ticker, tf, fold) slice and
+# aggregate the per-fold metrics (Sharpe, PF, drawdown, return) into a
+# single summary row; returns None if no fold produced a valid backtest.
 def evaluate_combo_global(combo: dict, datasets) -> dict:
     p = _make_params(combo)
     sharpes = []
