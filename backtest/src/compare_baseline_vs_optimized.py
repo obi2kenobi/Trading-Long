@@ -26,6 +26,9 @@ TICKERS = ["SPY", "QQQ", "IWM"]
 TF_LABELS = ["240m", "1d"]
 
 
+# Load an OHLCV CSV (date-indexed) and keep only the five price/volume
+# columns, dropping rows with any missing value so downstream signal and
+# backtest math never sees NaN.
 def load_csv(path: Path) -> pd.DataFrame:
     df = pd.read_csv(path, index_col=0, parse_dates=True)
     return df[["open", "high", "low", "close", "volume"]].dropna()

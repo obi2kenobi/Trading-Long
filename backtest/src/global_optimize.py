@@ -42,6 +42,9 @@ def _precompute(ticker: str, tf: str, n_folds: int):
 
 
 def evaluate_combo_global(combo: dict, datasets) -> dict:
+    """Run one ATR-multiplier combo on every (ticker, tf, fold) slice and
+    aggregate the per-fold metrics (Sharpe, PF, drawdown, return) into a
+    single summary row. Returns None when no fold produced a result."""
     p = _make_params(combo)
     sharpes = []
     pfs = []

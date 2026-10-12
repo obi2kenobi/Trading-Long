@@ -47,12 +47,11 @@ def run_one(ticker: str, tf: str, params: StrategyParams) -> dict:
 
 
 def main() -> None:
-    p = StrategyParams()
     rows = []
     for tk in TICKERS:
         for tf in TF_LABELS:
             print(f"  running {tk} {tf}...", flush=True)
-            rows.append(run_one(tk, tf, p))
+            rows.append(run_one(tk, tf, StrategyParams()))
     df = pd.DataFrame(rows)
     print()
     print("=" * 120)
