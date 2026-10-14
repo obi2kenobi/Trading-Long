@@ -33,6 +33,8 @@ def load_csv(path: Path) -> pd.DataFrame:
 
 
 def make_atr_params() -> StrategyParams:
+    # Configures the baseline strategy with specific ATR multipliers
+    # for SL, TP1, TP2, TP3, and trailing stop activation/offset.
     p = StrategyParams()
     p.use_atr_targets = True
     p.sl_atr_mult = 1.5

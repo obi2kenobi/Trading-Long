@@ -42,6 +42,8 @@ MAX_ABS_DD = 25.0  # percent
 
 
 def _valid_combo(c: dict) -> bool:
+    # Ensures take profit levels are strictly increasing and stop loss 
+    # is activated before the trailing stop kicks in.
     return (c["tp1_atr_mult"] < c["tp2_atr_mult"] < c["tp3_atr_mult"]
             and c["sl_atr_mult"] <= c["trailing_activation_atr_mult"])
 
