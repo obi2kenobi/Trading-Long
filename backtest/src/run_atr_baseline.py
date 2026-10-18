@@ -28,6 +28,7 @@ TF_LABELS = ["240m", "1d"]
 
 
 def load_csv(path: Path) -> pd.DataFrame:
+    # Loads OHLCV data from a CSV file, ensuring only required columns are kept.
     df = pd.read_csv(path, index_col=0, parse_dates=True)
     return df[["open", "high", "low", "close", "volume"]].dropna()
 
