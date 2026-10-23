@@ -82,6 +82,7 @@ def _evaluate(df: pd.DataFrame, daily_df: pd.DataFrame, params: StrategyParams) 
 
 
 def load_csv(path: Path) -> pd.DataFrame:
+    # Loads OHLCV data from CSV, setting the first column as index and dropping NaNs.
     df = pd.read_csv(path, index_col=0, parse_dates=True)
     return df[["open", "high", "low", "close", "volume"]].dropna()
 

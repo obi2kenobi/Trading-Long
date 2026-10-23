@@ -54,6 +54,7 @@ class BacktestResult:
 
 
 def _commission(notional: float, rate: float) -> float:
+    """Calculates the absolute commission cost for a given notional amount and rate."""
     return abs(notional) * rate
 
 

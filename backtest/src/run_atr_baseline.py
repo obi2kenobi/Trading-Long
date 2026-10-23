@@ -28,6 +28,7 @@ TF_LABELS = ["240m", "1d"]
 
 
 def load_csv(path: Path) -> pd.DataFrame:
+    # Loads market data from CSV and selects essential OHLCV columns.
     df = pd.read_csv(path, index_col=0, parse_dates=True)
     return df[["open", "high", "low", "close", "volume"]].dropna()
 
