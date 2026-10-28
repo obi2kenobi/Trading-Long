@@ -32,11 +32,14 @@ def load_csv(path: Path) -> pd.DataFrame:
     return df[["open", "high", "low", "close", "volume"]].dropna()
 
 
+ATR_SL_TP_MULT = 1.5
+
+
 def make_atr_params() -> StrategyParams:
     p = StrategyParams()
     p.use_atr_targets = True
-    p.sl_atr_mult = 1.5
-    p.tp1_atr_mult = 1.5
+    p.sl_atr_mult = ATR_SL_TP_MULT
+    p.tp1_atr_mult = ATR_SL_TP_MULT
     p.tp2_atr_mult = 3.0
     p.tp3_atr_mult = 5.0
     p.trailing_activation_atr_mult = 2.0
