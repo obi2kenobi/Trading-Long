@@ -1,0 +1,11 @@
+file	classe	affermazione	atteso	trovato	esito
+CLAUDE.md	AGGIORNATO-PARZIALE	documento regole generiche, nessuna affermazione concreta verificabile (zero numeri/comandi/versioni)	-	-	NON-VERIFICABILE
+docs/archivio/SAL.md	SUPERATO	v8.2 file "50 righe Pine"	50 righe	122 righe (wc -l)	DIVERSO
+docs/archivio/SAL.md	SUPERATO	168 combinazioni vincolate	168	168 (ricalcolo da walk_forward.py)	OK
+docs/archivio/SAL.md	SUPERATO	24 fold (3×4h+5×1d per 3 strumenti)	24	24 (INSTRUMENTS: 3×3+3×5)	OK
+docs/archivio/SAL.md	SUPERATO	eligibilita' PF>=1.2, mean DD>=-15%	-15%	walk_forward.py: MAX_ABS_DD=25.0	DIVERSO
+docs/archivio/SAL.md	SUPERATO	branch claude/review-script-work-OqTza	branch esistente	branch assente (git branch -a: solo main e docs/razionalizzazione-2026-11)	DIVERSO
+docs/archivio/SAL.md	SUPERATO	TEMA-ST-WT header v6.5	v6.5	pine header: v6.6 (Anti-Late-Entry)	DIVERSO
+backtest/src	NON-REVISIONATO	14 file Python (src), non letti uno a uno in questa revisione	-	14 file	NON-VERIFICABILE
+backtest/reports	NON-REVISIONATO	31 CSV di report	-	31 CSV	NON-VERIFICABILE
+tools	NON-REVISIONATO	py-gate.sh	-	1 file	NON-VERIFICABILE
