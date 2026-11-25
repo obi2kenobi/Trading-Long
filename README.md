@@ -43,7 +43,7 @@ python3 backtest/src/global_optimize.py
 python3 backtest/src/walk_forward.py
 ```
 
-Per il dettaglio degli entry point, convenzioni e punti delicati vedere `docs/LLM-GUIDA.md`.
+Per il dettaglio degli entry point, convenzioni e punti delicati vedere `docs/LLM-GUIDA.md`. Istruzioni d'uso: `docs/ISTRUZIONI.md`.
 
 ## Struttura delle cartelle
 
