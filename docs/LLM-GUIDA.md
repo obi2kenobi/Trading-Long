@@ -13,7 +13,7 @@ Repo di strategie Pine Script (long) + backtest Python in `backtest/`. Obiettivo
 ## Come si avvia / si testa (SOLO comandi verificati in questa revisione)
 - `bash tools/py-gate.sh .` → "Sintassi python: tutti i .py compilano (13 file)", exit 0
 - `wc -l *.pine` → v8.2 MINIMAL = 122 righe
-- `git log --oneline -1` → 2a3bbc4 (chore: gate tools)
+- `git log --oneline -1` → 602a156 (docs: add README)
 - NON verificato (non eseguiti, richiedono rete/dati): `pip install yfinance pandas numpy`; `python3 src/download_data.py`; `python3 src/check_data.py`; `python3 src/run_baseline.py`; `python3 src/global_optimize.py`; `python3 src/compare_baseline_vs_optimized.py`
 
 ## Convenzioni

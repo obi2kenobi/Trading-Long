@@ -1,11 +1,17 @@
 file	classe	affermazione	atteso	trovato	esito
-CLAUDE.md	AGGIORNATO-PARZIALE	documento regole generiche, nessuna affermazione concreta verificabile (zero numeri/comandi/versioni)	-	-	NON-VERIFICABILE
-docs/archivio/SAL.md	SUPERATO	v8.2 file "50 righe Pine"	50 righe	122 righe (wc -l)	DIVERSO
-docs/archivio/SAL.md	SUPERATO	168 combinazioni vincolate	168	168 (ricalcolo da walk_forward.py)	OK
-docs/archivio/SAL.md	SUPERATO	24 fold (3×4h+5×1d per 3 strumenti)	24	24 (INSTRUMENTS: 3×3+3×5)	OK
-docs/archivio/SAL.md	SUPERATO	eligibilita' PF>=1.2, mean DD>=-15%	-15%	walk_forward.py: MAX_ABS_DD=25.0	DIVERSO
-docs/archivio/SAL.md	SUPERATO	branch claude/review-script-work-OqTza	branch esistente	branch assente (git branch -a: solo main e docs/razionalizzazione-2026-11)	DIVERSO
-docs/archivio/SAL.md	SUPERATO	TEMA-ST-WT header v6.5	v6.5	pine header: v6.6 (Anti-Late-Entry)	DIVERSO
-backtest/src	NON-REVISIONATO	14 file Python (src), non letti uno a uno in questa revisione	-	14 file	NON-VERIFICABILE
-backtest/reports	NON-REVISIONATO	31 CSV di report	-	31 CSV	NON-VERIFICABILE
-tools	NON-REVISIONATO	py-gate.sh	-	1 file	NON-VERIFICABILE
+docs/LLM-GUIDA.md	AGGIORNATO	py-gate.sh exit 0 su 13 file	"tutti i .py compilano (13 file)"	"Sintassi python: tutti i .py compilano (13 file)"	OK
+docs/LLM-GUIDA.md	AGGIORNATO	TIGHT-BREAKOUT MINIMAL v8.2 = 122 righe	122	122 (wc -l)	OK
+docs/LLM-GUIDA.md	AGGIORNATO	git log --oneline -1 = 602a156 (docs: add README)	602a156	602a156 (docs: add README)	OK
+docs/LLM-GUIDA.md	AGGIORNATO	backtest/src = 13 file Python	13	13 (ls backtest/src | wc -l)	OK
+docs/LLM-GUIDA.md	AGGIORNATO	backtest/reports = 31 CSV	31	31 (ls)	OK
+docs/LLM-GUIDA.md	AGGIORNATO	5 file .pine alla radice	5	5 (ls *.pine)	OK
+docs/LLM-GUIDA.md	AGGIORNATO	ping: docs/archivio/SAL.md esiste	esiste	presente	OK
+README.md	AGGIORNATO	py-gate.sh . exit 0	Sintassi python: tutti i .py compilano (13 file)	uguale	OK
+README.md	AGGIORNATO	5 file .pine a radice	5	5	OK
+README.md	AGGIORNATO	backtest/src = 13 moduli	13	13	OK
+README.md	AGGIORNATO	backtest/reports contiene CSV	CSV presenti	31 CSV	OK
+README.md	AGGIORNATO	nessun file .env richiesto/presente	assente	assente (find)	OK
+CLAUDE.md	AGGIORNATO-PARZIALE	documento regole generiche, nessuna affermazione numerica verificabile (0 comandi/versioni concreti)	-	-	NON-VERIFICABILE
+CLAUDE.md	AGGIORNATO-PARZIALE	formato commit "<type>: ..." citato in "Git Rules"	formato nell'esempio	"feat: add export functionality..." presente	OK
+CLAUDE.md	AGGIORNATO-PARZIALE	presenza di sezioni Process/Code/Communication/Git/Error Handling/Project Notes	6 sezioni	6 sezioni presenti	OK
+CLAUDE.md	AGGIORNATO-PARZIALE	"Never force push" dichiarato	presente	presente	OK
