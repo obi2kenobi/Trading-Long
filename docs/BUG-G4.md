@@ -1,12 +1,18 @@
-# Bug candidati — M-031.73b.1 (G4)
+# Bug — M-031.73b.2 (G4)
 
-CANDIDATO-1: backtest/src/pine_ta.py:124-125 — logica supertrend errata: le condizioni usate per aggiornare up/dn band sono invertite (up band usa `prev_close > prev_up` invece di `prev_close > prev_dn`; dn band usa `prev_close < prev_dn` invece di `prev_close < prev_up`). Falsa perdita/corruzione dei livelli di trend e del trend sign.
+## BUG-1
+Dove: backtest/src/pine_ta.py (supertrend, up/dn banding)
+Gravità: media
+Prova: letto codice — condizioni invertite: up band usava `prev_close > prev_up` (dovrebbe `> prev_dn`), dn band `prev_close < prev_dn` (dovrebbe `< prev_up`). Runtime non disponibile (pandas assente); riproduzione statica.
+Correzione: ac35100 — `up[i] = max(upc_v[i], prev_up) if prev_close > prev_dn`; `dn[i] = min(dnc_v[i], prev_dn) if prev_close < prev_up`.
+Test: py_compile OK; test repo non peggiorati (nessun test affidabile installato).
 
-CANDIDATO-2: backtest/src/backtest_engine.py:231,242 — TP1/TP2 chiudono hardcoded il 30% della posizione residua (`qty * 0.30`) invece di usare `p.tp1_qty`/`p.tp2_qty` (definiti in strategy.py:77,79 e non letti da nessun'altra parte). Parametri ignorati in silenzio → profitto/perdite sbagliate se si modifica il qty.
+## BUG-2
+Dove: backtest/src/backtest_engine.py (TP1/TP2, partial close)
+Gravità: media
+Prova: grep confermato — `p.tp1_qty`/`p.tp2_qty` definiti in strategy.py:77,79 e non letti; hardcoded `qty * 0.30`.
+Correzione: 2ff0b16 — `partial = qty * (p.tp1_qty / 100.0)` e `partial = qty * (p.tp2_qty / 100.0)`.
+Test: py_compile OK.
 
-CANDIDATO-3: backtest/src/metrics.py:73-76 — profit_factor è calcolato sui pnl percentuali dei trade (`pnls = [t.pnl_perc]`) anziché su PnL assoluti; con capitali parziali per trade diversi il profit factor è distorto. (minore, ma logica errata in rapporto)
-
-## Rapporto
-- CANDIDATO-1: riproduzione — letto codice; nessuna correzione. Causa: falso ramo di aggiornamento delle bande supertrend (condizioni su prev_up/prev_dn invertite), conseguente trend sign e TP/SL errati.
-- CANDIDATO-2: riproduzione — grep confermato: tp1_qty/tp2_qty non letti. Causa: hardcoded 0.30 nei due punti.
-- CANDIDATO-3: riproduzione — grep metrics.py confermato. Causa: uso di pnl_perc invece di pnl_abs (Trade.pnl_abs esiste e non viene usato per pf).
+## Non fatto
+CANDIDATO-3 (metrics.py profit_factor su pnl_perc) — fuori perimetro (solo CANDIDATO-1 e CANDIDATO-2 richiesti).
