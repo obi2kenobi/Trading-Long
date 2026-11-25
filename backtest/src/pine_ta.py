@@ -136,8 +136,8 @@ def supertrend(
         prev_up = up[i - 1] if not np.isnan(up[i - 1]) else upc_v[i]
         prev_dn = dn[i - 1] if not np.isnan(dn[i - 1]) else dnc_v[i]
         prev_close = cls[i - 1]
-        up[i] = max(upc_v[i], prev_up) if prev_close > prev_up else upc_v[i]
-        dn[i] = min(dnc_v[i], prev_dn) if prev_close < prev_dn else dnc_v[i]
+        up[i] = max(upc_v[i], prev_up) if prev_close > prev_dn else upc_v[i]
+        dn[i] = min(dnc_v[i], prev_dn) if prev_close < prev_up else dnc_v[i]
         if cls[i] > prev_dn:
             trend[i] = 1
         elif cls[i] < prev_up:
