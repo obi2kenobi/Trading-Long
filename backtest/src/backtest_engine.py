@@ -157,8 +157,10 @@ def run_backtest(
             tp1_done = False
             tp2_done = False
             trailing_activated = False
-            # Crystallize targets using ATR at entry (uses prior bar's ATR for safety)
-            atr_entry = atr_in[i] if not np.isnan(atr_in[i]) else (atr_in[i - 1] if i > 0 and not np.isnan(atr_in[i - 1]) else 0.0)
+            # Crystallize targets using the ATR of the SIGNAL bar (i-1), known at fill time.
+            # Using atr_in[i] (the fill bar) would leak the fill bar's close into the stop.
+            sig_bar = i - 1
+            atr_entry = atr_in[sig_bar] if sig_bar >= 0 and not np.isnan(atr_in[sig_bar]) else 0.0
             targets = _compute_targets(fill_price, atr_entry, p)
             cur = Trade(entry_time=idx[i], entry_price=fill_price, initial_qty=qty)
             f = TradeFill(idx[i], "ENTRY", fill_price, qty, -(qty * fill_price + commission))
