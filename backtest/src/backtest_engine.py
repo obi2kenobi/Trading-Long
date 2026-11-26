@@ -230,7 +230,7 @@ def run_backtest(
             # TPs (only if SL didn't fire this bar)
             if not sl_triggered and qty > 1e-9 and p.use_take_profit:
                 if (not tp1_done) and bar_high >= tp1:
-                    partial = qty * 0.30
+                    partial = qty * min(max(p.tp1_qty, 0.0), 100.0) / 100.0
                     sell_notional = partial * tp1
                     commission = _commission(sell_notional, p.commission_perc)
                     cash += sell_notional - commission
@@ -241,7 +241,7 @@ def run_backtest(
                     if cur is not None: cur.fills.append(f)
 
                 if tp1_done and (not tp2_done) and bar_high >= tp2:
-                    partial = qty * 0.30
+                    partial = qty * min(max(p.tp2_qty, 0.0), 100.0) / 100.0
                     sell_notional = partial * tp2
                     commission = _commission(sell_notional, p.commission_perc)
                     cash += sell_notional - commission
