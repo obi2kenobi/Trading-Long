@@ -36,12 +36,14 @@ Strategie Pine Script (long) e backtest Python in `backtest/`. Obiettivo: strate
 
 ## Dati e interfacce
 - Dati OHLCV Yahoo Finance (yfinance), gitignored in `backtest/data/`
-- Interfacce: CLI comandi `python3 backtest/src/<entrypoint>.py`; Pine Script v6 consumato su TradingView
+- Interfacce: CLI comandi `python3 backtest/src/<entrypoint>.py`, lanciati dalla radice del repo; Pine Script v6 consumato su TradingView
+- Script di rete: solo `download_data.py` (yfinance, `yf.download`, riga 18) scrive `backtest/data/*.csv`. Gli altri script leggono `backtest/data/*.csv` e non usano la rete. Nessun argomento da riga di comando (nessun `sys.argv`/`argparse`). Output: CSV in `backtest/reports/` (`run_baseline.py` → `baseline.csv`; `global_optimize.py` → `global_sweep.csv`, `global_top.csv`; `walk_forward.py` → `wf_*.csv`; `compare_baseline_vs_optimized.py` → `comparison.csv`).
 - CSV in `backtest/reports/` (baseline, sweep, walk-forward)
 
 ## Dipendenze
-- Python 3 (non pinnate in requirements.txt; non verificato)
-- yfinance, pandas, numpy (non pinnate; non verificato, installare manualmente)
+- Python 3. Nessun requirements.txt nel repo.
+- Dipendenze realmente importate dal codice (`grep '^import\|^from' backtest/src/*.py`): `yfinance` (solo `download_data.py`, riga 5), `pandas`, `numpy`. Il resto è stdlib o moduli del repo.
+- Versioni: non registrate nel repo; la versione usata non è tracciata (non verificato).
 - Pine Script v6 (target TradingView)
 
 ## Configurazione
@@ -51,7 +53,7 @@ Strategie Pine Script (long) e backtest Python in `backtest/`. Obiettivo: strate
 ## Build e test
 - `bash tools/py-gate.sh .` → OK (13 file compilano), exit 0 — verificato 2026-11-26
 - `wc -l *.pine` → v8.2 MINIMAL = 122 righe (verificato)
-- Non verificato (rete/dati): install pip, download_data.py, check_data.py, run_baseline.py, global_optimize.py, walk_forward.py, compare_baseline_vs_optimized.py
+- Non eseguito (rete): `download_data.py`. Non eseguito (rete/dati, `backtest/data/` assente): `check_data.py`, `run_baseline.py`, `global_optimize.py`, `walk_forward.py`, `compare_baseline_vs_optimized.py`. Install pip: non verificato.
 
 ## Deploy
 Non applicabile: repo di strategie e backtest, nessun deploy. Le strategie Pine sono copiate su TradingView manualmente.

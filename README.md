@@ -35,7 +35,7 @@ Verifica dati:
 python3 backtest/src/check_data.py
 ```
 
-Backtest baseline / ottimizzazione / walk-forward (comandi indicativi, non tutti verificati senza rete):
+Backtest baseline / ottimizzazione / walk-forward (comandi indicativi, non tutti verificati senza rete). Si lanciano dalla radice del repo: ogni script aggiunge `backtest/` al `sys.path` (es. `backtest/src/run_baseline.py:7`), quindi gli import `src.*` funzionano da qualsiasi cartella:
 
 ```bash
 python3 backtest/src/run_baseline.py
@@ -50,6 +50,7 @@ Per il dettaglio degli entry point, convenzioni e punti delicati vedere `docs/LL
 - `*.pine` — 5 file Pine Script (strategie long) a radice
 - `backtest/src/` — 13 moduli Python (engine, strategy, metrics, optimize, walk_forward, global_optimize, pine_ta, check_data, download_data, run_baseline, run_atr_baseline, compare_baseline_vs_optimized)
 - `backtest/reports/` — CSV di report (baseline, sweep, walk-forward)
+- `.gitignore`: solo `backtest/.gitignore` (ignora `data/`, `__pycache__/`, `*.pyc`, `reports/*.html`, `reports/*.png`); nessun `.gitignore` alla radice
 - `backtest/data/` — dati OHLCV (gitignored, rigenerabili)
 - `tools/py-gate.sh` — gate sintassi Python
 - `docs/` — guida LLM e archivio

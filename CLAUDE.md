@@ -7,6 +7,7 @@ Strategie Pine Script (long) + backtest Python in `backtest/`. Obiettivo: breako
 - Radice: 5 file `.pine` (strategie long), `CLAUDE.md`
 - `backtest/src/`: 13 moduli Python (engine, strategy, metrics, optimize, walk_forward, global_optimize, pine_ta, check_data, download_data, run_baseline, run_atr_baseline, compare_baseline_vs_optimized)
 - `backtest/reports/`: 31 CSV di report
+- `.gitignore`: solo `backtest/.gitignore` (ignora `data/`, `__pycache__/`, `*.pyc`, `reports/*.html`, `reports/*.png`); nessun `.gitignore` alla radice
 - `backtest/data/`: dati OHLCV gitignored (rigenerabili)
 - `tools/py-gate.sh`: gate sintassi Python
 - `docs/`: LLM-GUIDA.md, _inventario.tsv, _guida-lista.txt, _revisione.tsv, REGOLE-CLAUDE-originale.md, archivio/
