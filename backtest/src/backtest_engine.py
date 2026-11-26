@@ -276,6 +276,27 @@ def run_backtest(
 
         equity[i] = cash + qty * c[i]
 
+    # ── 4) Fine dati: chiudi a mercato l'eventuale posizione ancora aperta ─
+    # Senza questo blocco la posizione non entra in trades (distorce n_trades,
+    # win rate, profit factor). Chiusura al close dell'ultima barra, con slippage/commissioni.
+    if qty > 1e-9 and cur is not None:
+        last = n - 1
+        fill_price = c[last] * (1.0 - p.slippage_perc)
+        sell_notional = qty * fill_price
+        commission = _commission(sell_notional, p.commission_perc)
+        cash += sell_notional - commission
+        f = TradeFill(idx[last], "EOD", fill_price, qty, sell_notional - commission)
+        fills.append(f)
+        cur.fills.append(f)
+        cur.exit_time = idx[last]
+        cur.exit_reason = "EOD"
+        cur.was_loss = fill_price < entry_price
+        _finalize(cur, last - entry_bar)
+        trades.append(cur)
+        cur = None
+        qty = 0.0
+        equity[last] = cash
+
     eq = pd.Series(equity, index=idx, name="equity")
     return BacktestResult(
         trades=trades,
