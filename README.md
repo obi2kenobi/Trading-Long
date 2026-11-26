@@ -54,3 +54,5 @@ Per il dettaglio degli entry point, convenzioni e punti delicati vedere `docs/LL
 - `tools/py-gate.sh` — gate sintassi Python
 - `docs/` — guida LLM e archivio
 - `CLAUDE.md` — regole di lavoro
+
+Scheda tecnica sintetica: `docs/SCHEDA-TECNICA.md`.

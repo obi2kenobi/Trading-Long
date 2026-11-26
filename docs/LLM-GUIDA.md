@@ -31,3 +31,5 @@ Repo di strategie Pine Script (long) + backtest Python in `backtest/`. Obiettivo
 - `SAL.md` (2026-05-01): spostato in `docs/archivio/SAL.md` — log datato con affermazioni smentite (50 righe vs 122; DD -15% vs 25%; branch claude/review-script-work-OqTza assente; header v6.5 vs v6.6)
 
 > Istruzioni d'uso dettagliate: `docs/ISTRUZIONI.md`.
+
+Scheda tecnica sintetica: `docs/SCHEDA-TECNICA.md`.
